@@ -1,0 +1,8 @@
+- [x] El endpoint `/outlook/connect` redirige correctamente al login de Microsoft.
+- [x] El endpoint `/outlook/callback` recibe el código, obtiene tokens y guarda una nueva `EmailIntegration` con provider 'OUTLOOK'.
+- [x] El endpoint `/outlook/status` devuelve `linked: true` después de conectar.
+- [x] El worker `emailScanner` detecta la integración de Outlook y ejecuta la lógica específica.
+- [x] El sistema renueva el token de acceso automáticamente si ha expirado.
+- [x] El sistema descarga correos de los remitentes permitidos (filtro OData correcto).
+- [x] El contenido del correo se pasa correctamente al Agente de IA.
+- [x] Se crea un `PendingExpense` (o `Expense` automático) a partir del correo de Outlook.

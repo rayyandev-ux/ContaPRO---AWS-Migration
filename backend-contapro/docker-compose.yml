@@ -1,0 +1,50 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      # Configura estas variables acorde a tu entorno
+      - DATABASE_URL=${DATABASE_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+      - JWT_SECRET=${JWT_SECRET}
+      - CACHE_TTL_SECONDS=${CACHE_TTL_SECONDS}
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX}
+      - LLM_BACKEND=python
+      - PYTHON_CMD=/app/python/.venv/bin/python
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - REDIS_URL=${REDIS_URL}
+      - QUEUES_ENABLED=${QUEUES_ENABLED}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 20s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  uploads:
+  redis-data:

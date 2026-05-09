@@ -1,0 +1,16 @@
+.scroll-reveal {
+  /* margin: 20px 0; Removed to allow better control via props */
+}
+
+.scroll-reveal-text {
+  /* font-size: clamp(1.6rem, 4vw, 3rem); Removed to use Tailwind */
+  /* line-height: 1.5; Removed to use Tailwind */
+  /* font-weight: 600; Removed to use Tailwind */
+  display: inline-block; /* Ensure it behaves as a block for text alignment */
+  width: 100%;
+}
+
+.word {
+  display: inline-block;
+  white-space: pre-wrap; /* Preserve spaces if needed, but allow wrapping */
+}

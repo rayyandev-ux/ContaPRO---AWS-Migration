@@ -1,0 +1,9 @@
+-- AlterEnum: add new values to ExpenseType
+ALTER TYPE "ExpenseType" ADD VALUE 'YAPE';
+ALTER TYPE "ExpenseType" ADD VALUE 'PLIN';
+ALTER TYPE "ExpenseType" ADD VALUE 'TUNKI';
+ALTER TYPE "ExpenseType" ADD VALUE 'LEMONPAY';
+ALTER TYPE "ExpenseType" ADD VALUE 'BCP';
+ALTER TYPE "ExpenseType" ADD VALUE 'INTERBANK';
+ALTER TYPE "ExpenseType" ADD VALUE 'SCOTIABANK';
+ALTER TYPE "ExpenseType" ADD VALUE 'BBVA';

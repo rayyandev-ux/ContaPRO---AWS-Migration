@@ -1,0 +1,468 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String    @id @default(uuid())
+  email                  String    @unique
+  password               String
+  name                   String?
+  role                   Role      @default(USER)
+  plan                   Plan      @default(FREE)
+  telegramId             String?
+  whatsappPhone          String?   @unique
+  whatsappLinkedAt       DateTime?
+  preferredCurrency      String    @default("PEN")
+  dateFormat             String    @default("DMY")
+  emailVerified          Boolean   @default(false)
+  verificationCode       String?
+  verificationExpires    DateTime?
+  trialEnds              DateTime?
+  planExpires            DateTime?
+  resetCode              String?
+  resetExpires           DateTime?
+  googleId               String?   @unique
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  defaultPaymentMethodId String?
+  tutorialSeen           Boolean   @default(false)
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  flowCustomerId         String?
+  flowSubscriptionId     String?
+  flowSubscriptionPlanId String?
+  flowCardLast4          String?
+  flowCardType           String?
+  flowPendingPlan        String?
+  paymentProvider        String    @default("STRIPE")
+  status                 String    @default("ACTIVE")
+  birthDate              DateTime?
+  language               String    @default("es")
+  extraProfileSlots      Int       @default(0)
+  phoneNumber            String?
+  hasUsedTrial           Boolean   @default(false)
+
+  antExpenseCountAlert       Int?
+  antExpenseEnabled          Boolean            @default(true)
+  antExpenseLimit            Float              @default(50.0)
+  antExpenseStreakAlert      Int?
+  notifyEmailExpenseWhatsApp Boolean            @default(true)
+  notifyEmailExpenseTelegram Boolean            @default(true)
+  reportFrequency            String             @default("DAILY") // OFF, DAILY, WEEKLY, MONTHLY
+  onboardingData             Json?
+  botMessageCount            Int                @default(0)
+  botMessageResetAt          DateTime?
+  extraEmailSlots            Int                @default(0)
+  agentContext               AgentContext?
+  budgets                    Budget[]
+  chatMemories               ChatMemory[]
+  budgetLogs                 BudgetLog[]
+  categories                 Category[]
+  couponRedemptions          CouponRedemption[]
+  documents                  Document[]
+  emailIntegrations          EmailIntegration[]
+  expenses                   Expense[]
+  incomes                    Income[]
+  payments                   Payment[]
+  paymentMethods             PaymentMethod[]    @relation("UserPaymentMethods")
+  pendingExpenses            PendingExpense[]
+  profiles                   Profile[]
+  createdPromoCodes          PromoCode[]        @relation("PromoCreatedBy")
+  redeemedPromoCodes         PromoCode[]        @relation("PromoRedeemedBy")
+  savingsGoals               SavingsGoal[]
+  savedViews                 SavedView[]
+  defaultPaymentMethod       PaymentMethod?     @relation("UserDefaultPaymentMethod", fields: [defaultPaymentMethodId], references: [id])
+}
+
+model Profile {
+  id             String          @id @default(uuid())
+  userId         String
+  name           String
+  color          String?
+  avatar         String?
+  isDefault      Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  budgets        Budget[]
+  budgetLogs     BudgetLog[]
+  categories     Category[]
+  documents      Document[]
+  expenses       Expense[]
+  incomes        Income[]
+  paymentMethods PaymentMethod[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  savingsGoals   SavingsGoal[]
+
+  @@unique([userId, name])
+}
+
+model SavingsGoal {
+  id            String               @id @default(uuid())
+  userId        String
+  name          String
+  targetAmount  Float
+  currentAmount Float                @default(0)
+  currency      String               @default("PEN")
+  deadline      DateTime?
+  icon          String?
+  color         String?
+  status        String               @default("ACTIVE")
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  profileId     String?
+  Profile       Profile?             @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions  SavingsTransaction[]
+}
+
+model SavingsTransaction {
+  id          String      @id @default(uuid())
+  goalId      String
+  amount      Float
+  type        String
+  description String?
+  createdAt   DateTime    @default(now())
+  goal        SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+}
+
+model Coupon {
+  id          String             @id @default(uuid())
+  code        String             @unique
+  days        Int
+  maxUses     Int?
+  usedCount   Int                @default(0)
+  expiresAt   DateTime?
+  active      Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  redemptions CouponRedemption[]
+}
+
+model CouponRedemption {
+  id         String   @id @default(uuid())
+  couponId   String
+  userId     String
+  redeemedAt DateTime @default(now())
+  coupon     Coupon   @relation(fields: [couponId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, couponId])
+}
+
+model Document {
+  id          String    @id @default(uuid())
+  userId      String
+  filename    String
+  mimeType    String
+  storagePath String?
+  uploadedAt  DateTime  @default(now())
+  profileId   String?
+  analysis    Analysis?
+  profile     Profile?  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expense     Expense?
+}
+
+model Analysis {
+  id         String   @id @default(uuid())
+  documentId String   @unique
+  summary    String
+  total      Float?
+  details    Json?
+  createdAt  DateTime @default(now())
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model AiCache {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  ttl       Int
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  userId    String?
+  createdAt DateTime  @default(now())
+  profileId String?
+  profile   Profile?  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budgets   Budget[]  @relation("CategoryToBudget")
+  expenses  Expense[]
+
+  @@unique([name, userId, profileId])
+}
+
+enum BudgetTarget {
+  GENERAL
+  CATEGORY
+}
+
+model Budget {
+  id             String   @id @default(uuid())
+  userId         String
+  month          Int
+  year           Int
+  amount         Float
+  currency       String   @default("PEN")
+  alertThreshold Float?   @default(0.8)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  name           String?
+  profileId      String?
+
+  target     BudgetTarget @default(GENERAL)
+  categoryId String?
+
+  category Category?   @relation("CategoryToBudget", fields: [categoryId], references: [id], onDelete: Cascade)
+  Profile  Profile?    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs     BudgetLog[]
+
+  @@unique([userId, profileId, year, month, target, categoryId])
+}
+
+model Expense {
+  id              String         @id @default(uuid())
+  userId          String
+  type            ExpenseType
+  source          SourceType
+  issuedAt        DateTime
+  provider        String
+  description     String?
+  editReason      String?
+  amount          Float
+  currency        String         @default("PEN")
+  categoryId      String?
+  documentId      String?        @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  emitterIdNumber String?
+  paymentMethodId String?
+  profileId       String?
+  amountNative    Float?
+  exchangeRate    Float?
+  category        Category?      @relation(fields: [categoryId], references: [id])
+  document        Document?      @relation(fields: [documentId], references: [id])
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  Profile         Profile?       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deletedAt       DateTime?
+}
+
+model PaymentMethod {
+  id              String    @id @default(uuid())
+  userId          String
+  name            String
+  provider        String
+  type            String
+  cardLast4       String?
+  accountNumber   String?
+  currency        String    @default("PEN")
+  active          Boolean   @default(true)
+  balance         Float     @default(0.0)
+  isFavorite      Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  profileId       String?
+  expenses        Expense[]
+  incomes         Income[]
+  Profile         Profile?  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user            User      @relation("UserPaymentMethods", fields: [userId], references: [id], onDelete: Cascade)
+  defaultForUsers User[]    @relation("UserDefaultPaymentMethod")
+
+  @@unique([userId, profileId, name])
+}
+
+model Payment {
+  id                    String   @id @default(uuid())
+  userId                String
+  provider              String
+  orderId               String   @unique
+  flowToken             String?  @unique
+  flowOrder             Int?
+  period                String
+  currency              String
+  amount                Float
+  status                String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  stripePaymentIntentId String?  @unique
+  stripeSessionId       String?  @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PlanSetting {
+  id            String   @id @default(uuid())
+  period        String   @unique
+  name          String
+  description   String?
+  priceUsd      Float
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  stripePriceId String?
+}
+
+model PromoCode {
+  id           String    @id @default(uuid())
+  code         String    @unique
+  days         Int
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  redeemedById String?
+  redeemedAt   DateTime?
+  deletedAt    DateTime?
+  createdBy    User?     @relation("PromoCreatedBy", fields: [createdById], references: [id])
+  redeemedBy   User?     @relation("PromoRedeemedBy", fields: [redeemedById], references: [id])
+}
+
+model BudgetLog {
+  id            String   @id @default(uuid())
+  budgetId      String
+  userId        String
+  amount        Float
+  previousTotal Float
+  newTotal      Float
+  reason        String
+  type          String
+  createdAt     DateTime @default(now())
+  profileId     String?
+  budget        Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  profile       Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailIntegration {
+  id           String    @id @default(uuid())
+  userId       String
+  provider     String
+  email        String
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime?
+  lastSync     DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  settings     Json?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, email])
+}
+
+model PendingExpense {
+  id             String   @id @default(uuid())
+  userId         String
+  amount         Float
+  currency       String   @default("PEN")
+  description    String?
+  merchant       String?
+  date           DateTime
+  source         String
+  sourceId       String?
+  rawText        String?
+  status         String   @default("WAITING_USER")
+  aiAnalysis     Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  screenshotPath String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sourceId])
+}
+
+model AgentContext {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  data      Json
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ChatMemory {
+  id        String   @id @default(uuid())
+  userId    String
+  content   String
+  role      String // "user", "assistant", "system"
+  embedding Float[]
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Income {
+  id              String    @id @default(uuid())
+  userId          String
+  profileId       String?
+  paymentMethodId String
+  amount          Float
+  currency        String    @default("PEN")
+  amountNative    Float?
+  exchangeRate    Float?
+  description     String?
+  category        String?
+  categoryId      String?
+  issuedAt        DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  Profile       Profile?      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SavedView {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  filters   Json
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+}
+
+enum ExpenseType {
+  FACTURA
+  BOLETA
+  YAPE
+  PLIN
+  TUNKI
+  LEMONPAY
+  BCP
+  INTERBANK
+  SCOTIABANK
+  BBVA
+  INFORMAL
+}
+
+enum SourceType {
+  MANUAL
+  DOCUMENT
+  BUDGET
+  SAVINGS
+}
+
+enum Plan {
+  FREE
+  PREMIUM
+  LIFETIME
+  BUSINESS
+  QUARTERLY
+}
+
+enum Role {
+  USER
+  ADMIN
+}

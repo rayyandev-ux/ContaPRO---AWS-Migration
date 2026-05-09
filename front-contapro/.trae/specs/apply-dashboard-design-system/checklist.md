@@ -1,0 +1,7 @@
+- [x] La página `/expenses` refleja el diseño "glassmorphism" oscuro.
+- [x] La página `/categories` refleja el diseño "glassmorphism" oscuro.
+- [x] La página `/payment-methods` refleja el diseño "glassmorphism" oscuro.
+- [x] La página `/budget` refleja el diseño "glassmorphism" oscuro.
+- [x] La página `/savings` refleja el diseño "glassmorphism" oscuro.
+- [x] La página `/integrations` refleja el diseño "glassmorphism" oscuro.
+- [x] Los modales, formularios y tablas compartidas mantienen una estética coherente en toda la aplicación.

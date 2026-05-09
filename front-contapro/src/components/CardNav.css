@@ -1,0 +1,151 @@
+.card-nav-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 9999;
+  pointer-events: none;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.card-nav-container.hidden-nav {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+.card-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 1.5rem;
+  pointer-events: auto;
+  width: 100%;
+}
+
+.card-nav-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+  z-index: 10001;
+  position: relative;
+}
+
+.hamburger-menu {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 6px;
+  cursor: pointer;
+  z-index: 10001;
+  position: relative;
+  /* Ensure hit area is large enough */
+  padding: 5px;
+}
+
+.hamburger-line {
+  height: 2px;
+  background-color: white;
+  border-radius: 2px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hamburger-line:nth-child(1) { width: 28px; }
+.hamburger-line:nth-child(2) { width: 20px; }
+
+.hamburger-menu.open .hamburger-line:nth-child(1) {
+  width: 28px;
+  transform: rotate(45deg) translate(5px, 6px);
+}
+.hamburger-menu.open .hamburger-line:nth-child(2) {
+  width: 28px;
+  transform: rotate(-45deg);
+}
+
+/* Full Screen Overlay */
+.fullscreen-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(10, 10, 10, 0.98);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+  z-index: 10000;
+  padding-bottom: 2rem; /* Account for mobile bottom bar */
+}
+
+.fullscreen-menu.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.menu-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 2rem;
+  gap: 3rem;
+}
+
+.menu-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.menu-link {
+  font-size: 2.25rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  transition: transform 0.2s, color 0.2s;
+  letter-spacing: -0.02em;
+}
+
+.menu-link:active {
+  transform: scale(0.95);
+  color: white;
+}
+
+.menu-cta-container {
+  margin-top: 1rem;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.menu-cta-button {
+  padding: 1rem 3rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-cta-button:active {
+  transform: scale(0.96);
+}

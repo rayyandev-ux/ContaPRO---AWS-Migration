@@ -1,0 +1,35 @@
+
+model EmailIntegration {
+  id           String    @id @default(uuid())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  provider     String // GMAIL, OUTLOOK
+  email        String
+  accessToken  String // Encrypted
+  refreshToken String // Encrypted
+  expiresAt    DateTime?
+  lastSync     DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, email])
+}
+
+model PendingExpense {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  amount      Float
+  currency    String   @default("PEN")
+  description String?
+  merchant    String?
+  date        DateTime
+  source      String // GMAIL, SMS, WHATSAPP
+  sourceId    String? // ID único del mensaje original
+  rawText     String?
+  status      String   @default("WAITING_USER") // WAITING_USER, APPROVED, REJECTED, IGNORED
+  aiAnalysis  Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
