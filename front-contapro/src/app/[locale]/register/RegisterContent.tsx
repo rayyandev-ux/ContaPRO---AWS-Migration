@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 import { useState } from "react";
 import { useRouter, Link } from "@/i18n/routing";
 import { useSearchParams } from "next/navigation";

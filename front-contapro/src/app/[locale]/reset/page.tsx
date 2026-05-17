@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -42,7 +43,7 @@ function ResetForm() {
     if (!password || password.length < 6) { setPasswordError("Usa al menos 6 caracteres"); valid = false; }
     if (!valid) { setLoading(false); return; }
     try {
-      const res = await fetch("/api/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code, password }) });
+      const res = await fetch(BASE + "/api/auth/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code, password }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || d?.ok !== true) {
         setError(d?.error || "No se pudo restablecer la contraseña");

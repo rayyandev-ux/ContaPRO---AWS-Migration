@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ export default function WhatsAppLinkCard() {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/proxy/integrations/whatsapp/status", { credentials: "include" });
+      const res = await fetch(BASE + "/api/integrations/whatsapp/status", { credentials: "include" });
       const data = await res.json();
       setStatus(data);
     } catch {
@@ -42,7 +43,7 @@ export default function WhatsAppLinkCard() {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/proxy/integrations/whatsapp/link", { method: "POST", credentials: "include" });
+      const res = await fetch(BASE + "/api/integrations/whatsapp/link", { method: "POST", credentials: "include" });
       const data = await res.json();
       setLink(data);
     } catch {
@@ -56,7 +57,7 @@ export default function WhatsAppLinkCard() {
     setLoading(true);
     setMsg(null);
     try {
-      await fetch("/api/proxy/integrations/whatsapp/unlink", { method: "POST", credentials: "include" });
+      await fetch(BASE + "/api/integrations/whatsapp/unlink", { method: "POST", credentials: "include" });
       setLink(null);
       await refresh();
     } catch {
@@ -70,7 +71,7 @@ export default function WhatsAppLinkCard() {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/proxy/integrations/whatsapp/test", { method: "POST", credentials: "include" });
+      const res = await fetch(BASE + "/api/integrations/whatsapp/test", { method: "POST", credentials: "include" });
       const data = await res.json();
       if (data?.ok) setMsg("Mensaje de prueba enviado"); else setMsg(data?.error || "Error al enviar");
     } catch {

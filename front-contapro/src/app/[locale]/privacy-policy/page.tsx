@@ -5,12 +5,15 @@ import { Link } from '@/i18n/routing';
 import { cn } from '@/lib/utils';
 import { Metadata } from 'next';
 
+import { setRequestLocale } from 'next-intl/server';
+
 export async function generateMetadata({
   params
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  setRequestLocale(locale);
   return {
     title: 'Privacy Policy',
     alternates: {
@@ -24,7 +27,9 @@ export async function generateMetadata({
   };
 }
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   return (
     <section className="relative min-h-svh w-full overflow-hidden bg-[#050505] text-foreground">
       <SiteHeader />

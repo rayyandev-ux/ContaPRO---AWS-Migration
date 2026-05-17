@@ -9,6 +9,7 @@ import PostHogPageView from "@/components/providers/PostHogPageView";
 import {NextIntlClientProvider} from 'next-intl';
 import {getMessages} from 'next-intl/server';
 import {notFound} from 'next/navigation';
+import {setRequestLocale} from 'next-intl/server';
 import {routing} from '@/i18n/routing';
 
 const inter = Inter({
@@ -43,6 +44,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  setRequestLocale(locale);
   const baseUrl = process.env.NEXT_PUBLIC_APP_HOST 
     ? `https://${process.env.NEXT_PUBLIC_APP_HOST}` 
     : 'https://contapro.lat';
@@ -86,6 +88,10 @@ export const viewport = {
   initialScale: 1,
 } as const;
 
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
+
 export default async function RootLayout({
   children,
   params
@@ -94,6 +100,7 @@ export default async function RootLayout({
   params: Promise<{locale: string}>;
 }>) {
   const {locale} = await params;
+  setRequestLocale(locale);
 
   if (!routing.locales.includes(locale as any)) {
     notFound();

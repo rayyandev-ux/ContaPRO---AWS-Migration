@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 import { useMemo, useState } from "react";
 import { useRouter } from "@/i18n/routing";
 import { Trash2 } from "lucide-react";
@@ -35,7 +36,7 @@ export default function AnalysisItemsEditor({ documentId, initialItems }: { docu
     setSaved(false);
     const payload = { items: rows.map(r => ({ description: r.description.trim(), quantity: 1, unitPrice: Number(r.lineTotal || 0) })) };
     try {
-      const res = await fetch(`/api/proxy/analysis/${documentId}/items`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+      const res = await fetch(`${BASE}/api/analysis/${documentId}/items`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || 'No se pudo guardar ítems');

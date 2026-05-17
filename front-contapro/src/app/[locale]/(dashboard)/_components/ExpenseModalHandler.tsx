@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/routing";
 import { apiJson } from "@/lib/api";
-import EditExpenseDialog from "@/app/[locale]/(dashboard)/transactions/[id]/EditExpenseDialog";
+import EditExpenseDialog from "@/app/[locale]/(dashboard)/transactions/detail/EditExpenseDialog";
 
 function HandlerContent() {
   const searchParams = useSearchParams();

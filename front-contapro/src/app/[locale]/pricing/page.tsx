@@ -1,5 +1,7 @@
+import { Metadata } from 'next';
 import PricingContent from './PricingContent';
-import type { Metadata } from 'next';
+import { setRequestLocale } from 'next-intl/server';
+import { Suspense } from 'react';
 
 export async function generateMetadata({
   params
@@ -7,8 +9,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  setRequestLocale(locale);
   return {
-    title: 'Planes y Precios',
+    title: 'Precios',
     alternates: {
       canonical: `/${locale}/pricing`,
       languages: {
@@ -20,6 +23,12 @@ export async function generateMetadata({
   };
 }
 
-export default function PricingPage() {
-  return <PricingContent />;
+export default async function PricingPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  return (
+    <Suspense>
+      <PricingContent />
+    </Suspense>
+  );
 }

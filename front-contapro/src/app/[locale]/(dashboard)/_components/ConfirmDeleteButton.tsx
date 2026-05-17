@@ -1,4 +1,5 @@
 'use client';
+import { BASE } from "@/lib/api";
 import React, { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { invalidateApiCache } from '@/lib/api';
@@ -19,7 +20,7 @@ export default function ConfirmDeleteButton({ categoryId }: { categoryId: string
       setLoading(true);
       const now = new Date();
       const qs = new URLSearchParams({ categoryId, month: String(now.getMonth() + 1), year: String(now.getFullYear()) }).toString();
-      const res = await fetch(`/api/proxy/budget/category?${qs}`, { method: 'DELETE' });
+      const res = await fetch(`${BASE}/api/budget/category?${qs}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) {
         let msg = `Error ${res.status}`;
         try { const j = await res.json(); msg = String(j?.error || j?.message || msg); } catch {}

@@ -1,4 +1,5 @@
 'use client';
+import { BASE } from "@/lib/api";
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
@@ -14,7 +15,7 @@ export default function CategoryBudgetGuard({ month, year, generalAmount, totalA
       if (categoryId) {
         try {
           const qs = new URLSearchParams({ categoryId, month: String(month), year: String(year) }).toString();
-          const res = await fetch(`/api/proxy/budget/category?${qs}`, { cache: 'no-store' });
+          const res = await fetch(`${BASE}/api/budget/category?${qs}`, { cache: 'no-store' });
           if (res.ok) {
             const d = await res.json();
             currentAmt = Number(d?.budget?.amount ?? 0);

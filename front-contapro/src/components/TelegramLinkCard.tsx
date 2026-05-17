@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ export default function TelegramLinkCard() {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/proxy/integrations/telegram/status", { credentials: "include" });
+      const res = await fetch(BASE + "/api/integrations/telegram/status", { credentials: "include" });
       const data = await res.json();
       setStatus(data);
     } catch {
@@ -43,7 +44,7 @@ export default function TelegramLinkCard() {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/proxy/integrations/telegram/link", { method: "POST", credentials: "include" });
+      const res = await fetch(BASE + "/api/integrations/telegram/link", { method: "POST", credentials: "include" });
       const data = await res.json();
       setLink(data);
     } catch {
@@ -57,7 +58,7 @@ export default function TelegramLinkCard() {
     setLoading(true);
     setMsg(null);
     try {
-      await fetch("/api/proxy/integrations/telegram/unlink", { method: "POST", credentials: "include" });
+      await fetch(BASE + "/api/integrations/telegram/unlink", { method: "POST", credentials: "include" });
       setLink(null);
       await refresh();
     } catch {
@@ -71,7 +72,7 @@ export default function TelegramLinkCard() {
     setLoading(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/proxy/integrations/telegram/test", { method: "POST", credentials: "include" });
+      const res = await fetch(BASE + "/api/integrations/telegram/test", { method: "POST", credentials: "include" });
       const data = await res.json();
       if (data?.ok) setMsg("Mensaje de prueba enviado"); else setMsg(data?.error || "Error al enviar");
     } catch {

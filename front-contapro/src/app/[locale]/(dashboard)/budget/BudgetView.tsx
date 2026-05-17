@@ -50,11 +50,6 @@ interface BudgetViewProps {
   byMonthBudget?: Array<{ month: number; budget: number; spent: number; remaining: number; currency: string }>;
   categories: Array<{ id: string; name: string; budget: number; spent: number; remaining: number; expenseCount: number }>;
   unallocatedBudget: number;
-  onSaveBudget: (formData: FormData) => Promise<void>;
-  onSaveThreshold: (formData: FormData) => Promise<void>;
-  onSaveCategoryBudget: (formData: FormData) => Promise<void>;
-  onDeleteCategoryBudget?: (formData: FormData) => Promise<void>;
-  onRegisterIncome?: (formData: FormData) => Promise<void>;
   budgetName?: string;
   allCategories?: Array<{ id: string; name: string }>;
   paymentMethods?: Array<{ id: string; name: string; currency: string; balance: number }>;
@@ -81,11 +76,6 @@ export default function BudgetView({
   byMonthBudget = [],
   categories = [],
   unallocatedBudget = 0,
-  onSaveBudget,
-  onSaveThreshold,
-  onSaveCategoryBudget,
-  onDeleteCategoryBudget,
-  onRegisterIncome,
   budgetName,
   allCategories = [],
   paymentMethods = [],
@@ -197,6 +187,52 @@ export default function BudgetView({
 
   // --- Handlers ---
 
+  const handleSaveBudget = async (formData: FormData) => {
+    const amount = Number(formData.get("amount") || 0);
+    const month = Number(formData.get("month")) || (new Date().getMonth() + 1);
+    const year = Number(formData.get("year")) || new Date().getFullYear();
+
+    const currency = String(formData.get("currency") || "");
+    const name = String(formData.get("name") || "");
+    const payload: { month: number; year: number; amount: number; currency?: string; name?: string } = { month, year, amount };
+    if (currency) payload.currency = currency;
+    if (name) payload.name = name;
+
+    const res = await apiJson("/api/budget", { method: "POST", body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error(res.error || `Error`);
+  };
+
+  const handleSaveCategoryBudgetAmount = async (formData: FormData) => {
+    const amount = Number(formData.get("amount") || 0);
+    const month = Number(formData.get("month")) || (new Date().getMonth() + 1);
+    const year = Number(formData.get("year")) || new Date().getFullYear();
+    const categoryId = String(formData.get("categoryId") || "");
+
+    const payload = { month, year, amount, categoryId, target: "CATEGORY" };
+
+    const res = await apiJson("/api/budget", { method: "POST", body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error("Error saving category budget");
+  };
+
+  const handleSaveAlertThreshold = async (formData: FormData) => {
+    const threshold = Number(formData.get("threshold") || 0);
+    const month = Number(formData.get("month")) || (new Date().getMonth() + 1);
+    const year = Number(formData.get("year")) || new Date().getFullYear();
+    const payload = { month, year, alertThreshold: threshold };
+    await apiJson("/api/budget", { method: "POST", body: JSON.stringify(payload) });
+  };
+
+  const apiDeleteCategoryBudget = async (formData: FormData) => {
+    const month = Number(formData.get("month")) || (new Date().getMonth() + 1);
+    const year = Number(formData.get("year")) || new Date().getFullYear();
+    const categoryId = String(formData.get("categoryId") || "");
+
+    const res = await apiJson(`/api/budget?target=CATEGORY&categoryId=${categoryId}&month=${month}&year=${year}`, { 
+      method: "DELETE" 
+    });
+    if (!res.ok) throw new Error("Error deleting category budget");
+  };
+
   const fetchLogs = useCallback(async () => {
     setLoadingLogs(true);
     try {
@@ -263,8 +299,9 @@ export default function BudgetView({
     formData.append("year", yearStr);
     
     startTransition(async () => {
-      await onSaveThreshold(formData);
+      await handleSaveAlertThreshold(formData);
       setIsThresholdDialogOpen(false);
+      window.location.reload();
     });
   };
 
@@ -297,8 +334,9 @@ export default function BudgetView({
           formData.append("categoryId", activeCategory?.categoryId || activeCategory?.id || "");
         }
         
-        await onSaveCategoryBudget(formData);
+        await handleSaveCategoryBudgetAmount(formData);
         setIsCategoryDialogOpen(false);
+        window.location.reload();
       } catch (err: any) {
         setAdjustError(err.message || "Error al asignar");
       }
@@ -306,7 +344,7 @@ export default function BudgetView({
   };
 
   const handleDeleteCategoryBudget = async () => {
-    if (!categoryToDelete || !onDeleteCategoryBudget) return;
+    if (!categoryToDelete) return;
     startTransition(async () => {
       try {
         const formData = new FormData();
@@ -314,8 +352,9 @@ export default function BudgetView({
         formData.append("year", yearStr);
         formData.append("categoryId", categoryToDelete.categoryId || categoryToDelete.id || "");
         
-        await onDeleteCategoryBudget(formData);
+        await apiDeleteCategoryBudget(formData);
         setCategoryToDelete(null);
+        window.location.reload();
       } catch (err: any) {
         setAdjustError(err.message || "Error al eliminar");
       }

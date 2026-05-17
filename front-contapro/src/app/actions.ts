@@ -1,19 +1,12 @@
-'use server';
-
-import { updateTag, revalidatePath } from 'next/cache';
-
 export async function revalidateBudget() {
-  updateTag('budget-current');
-  updateTag('budget-month');
-  updateTag('dashboard-stats-category');
-  updateTag('dashboard-stats-month');
-  updateTag('dashboard-budget-month');
+  // En modo estático (SPA), la invalidación de caché del servidor no aplica.
+  // Utiliza router.refresh() en tus Client Components en su lugar.
 }
 
 export async function revalidateDashboard() {
-  revalidatePath('/dashboard', 'page');
+  // No-op
 }
 
 export async function revalidateEverything() {
-  revalidatePath('/', 'layout');
+  // No-op
 }

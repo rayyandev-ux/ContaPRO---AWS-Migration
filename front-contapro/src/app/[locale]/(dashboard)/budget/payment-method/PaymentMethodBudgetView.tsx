@@ -28,9 +28,9 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
 interface PaymentMethodBudgetViewProps {
-  monthLabel: string;
   generalAmount: number;
-  totalAssigned: number;
+  generalAlertThreshold: number | null;
+  currencyCode: string;
   methods: Array<{ id: string; name: string; provider: string; cardLast4?: string | null; active: boolean }>;
   pmStatuses: Array<{ 
     paymentMethodId: string; 
@@ -39,24 +39,18 @@ interface PaymentMethodBudgetViewProps {
     spent: number; 
     remaining: number 
   }>;
-  currencyCode: string;
-  monthStr: string;
-  yearStr: string;
-  onSave: (formData: FormData) => Promise<void>;
-  onDelete: (formData: FormData) => Promise<void>;
+  monthNum: number;
+  yearNum: number;
 }
 
 export default function PaymentMethodBudgetView({
-  monthLabel,
   generalAmount,
-  totalAssigned,
+  generalAlertThreshold,
+  currencyCode,
   methods,
   pmStatuses,
-  currencyCode,
-  monthStr,
-  yearStr,
-  onSave,
-  onDelete
+  monthNum,
+  yearNum
 }: PaymentMethodBudgetViewProps) {
   const t = useTranslations('PaymentMethodBudget');
   const [isPending, startTransition] = useTransition();
@@ -70,6 +64,7 @@ export default function PaymentMethodBudgetView({
   const [thresholdInput, setThresholdInput] = useState("");
   const [currency, setCurrency] = useState(currencyCode);
 
+  const totalAssigned = pmStatuses.reduce((acc, s) => acc + (s.budget?.amount ?? 0), 0);
   const configuredIds = new Set(pmStatuses.filter(s => s.budget).map(s => s.paymentMethodId));
   const availableMethods = methods.filter(m => !configuredIds.has(m.id));
   const canAddMore = (generalAmount - totalAssigned) > 0 && availableMethods.length > 0;
@@ -100,31 +95,54 @@ export default function PaymentMethodBudgetView({
     setEditingItem(item.paymentMethodId);
   };
 
-  const handleSave = async (formData: FormData) => {
-    formData.append("month", monthStr);
-    formData.append("year", yearStr);
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.target as HTMLFormElement);
+    const paymentMethodId = String(formData.get("paymentMethodId") || "");
+    const amountStr = String(formData.get("pmAmount") ?? "");
+    const thresholdStr = String(formData.get("pmThreshold") ?? "");
+    const thresholdType = String(formData.get("pmThresholdType") || "amount");
+    const currency = String(formData.get("pmCurrency") || "");
+    const amountVal = amountStr.trim() !== "" ? Number(amountStr) : NaN;
+    let threshold = thresholdStr.trim() !== "" ? Number(thresholdStr) : NaN;
+    if (thresholdType === 'percent' && !Number.isNaN(threshold)) threshold = threshold / 100;
+
+    const payload: any = {
+      paymentMethodId,
+      month: monthNum,
+      year: yearNum,
+    };
+    if (!paymentMethodId) return;
+    if (!Number.isNaN(amountVal)) payload.amount = amountVal;
+    if (!Number.isNaN(threshold)) payload.alertThreshold = threshold;
+    if (currency) payload.currency = currency;
+
     startTransition(async () => {
       try {
-        await onSave(formData);
-        setIsCreateOpen(false);
-        setEditingItem(null);
-      } catch (e) {
-        console.error("Error saving:", e);
+        const { apiJson } = await import("@/lib/api");
+        const res = await apiJson("/api/budget/payment-method", { method: "POST", body: JSON.stringify(payload) });
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          alert(res.error || "Error");
+        }
+      } catch (err) {
+        alert("Network error");
       }
     });
   };
 
   const handleDelete = async (paymentMethodId: string) => {
     if (!confirm("¿Estás seguro de eliminar el presupuesto de este método?")) return;
-    const formData = new FormData();
-    formData.append("paymentMethodId", paymentMethodId);
-    formData.append("month", monthStr);
-    formData.append("year", yearStr);
     startTransition(async () => {
       try {
-        await onDelete(formData);
-      } catch (e) {
-        console.error("Error deleting:", e);
+        const qs = new URLSearchParams({ paymentMethodId, month: String(monthNum), year: String(yearNum) }).toString();
+        const { apiJson } = await import("@/lib/api");
+        await apiJson(`/api/budget/payment-method?${qs}`, { method: "DELETE" });
+        window.location.reload();
+      } catch (err) {
+        alert("Network error");
       }
     });
   };
@@ -137,9 +155,9 @@ export default function PaymentMethodBudgetView({
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-playfair font-bold tracking-tight text-white">{t('title')}</h2>
-          <p className="text-white/50">{t('subtitle', { month: monthLabel })}</p>
-        </div>
+            <h2 className="text-3xl font-playfair font-bold tracking-tight text-white">{t('title')}</h2>
+            <p className="text-white/50">{t('subtitle', { month: `${yearNum}-${String(monthNum).padStart(2, '0')}` })}</p>
+          </div>
         <div className="flex items-center gap-2">
            <Button onClick={openCreate} disabled={!canAddMore || isPending} className="bg-white text-black hover:bg-white/90 rounded-xl">
               <Plus className="mr-2 h-4 w-4" />
@@ -260,7 +278,7 @@ export default function PaymentMethodBudgetView({
               {editingItem ? "Modifica el límite de gasto para este método." : "Define un límite de gasto para un método de pago."}
             </DialogDescription>
           </DialogHeader>
-          <form action={handleSave} className="grid gap-4 py-4">
+          <form onSubmit={handleSave} className="grid gap-4 py-4">
             <input type="hidden" name="paymentMethodId" value={editingItem || selectedMethod} />
             
             <div className="grid gap-2">

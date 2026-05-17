@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 import { useState } from "react";
 
 type Props = {
@@ -16,7 +17,7 @@ export default function AnalysisSummaryEditor({ documentId, initialSummary }: Pr
     setStatus("saving");
     setError(null);
     try {
-      const res = await fetch(`/api/proxy/analysis/${documentId}/summary`, {
+      const res = await fetch(`${BASE}/api/analysis/${documentId}/summary`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ summary }),

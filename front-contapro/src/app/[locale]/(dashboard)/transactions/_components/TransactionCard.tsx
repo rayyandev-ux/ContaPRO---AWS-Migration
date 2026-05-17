@@ -141,7 +141,7 @@ export default function TransactionCard({
         {/* View Details Link */}
         {tx.transactionType === "EXPENSE" && (
           <Link
-            href={`/transactions/${tx.id}`}
+            href={`/transactions/detail?id=${tx.id}`}
             className="ml-auto p-1.5 rounded-full bg-white/5 text-white/40 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10 transition-all"
             title="Ver detalles"
           >

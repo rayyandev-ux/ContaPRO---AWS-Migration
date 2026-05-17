@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ArrowUp, Plus, Mic, X, Loader2, Image as ImageIcon, FileText, Camera, StopCircle } from "lucide-react";

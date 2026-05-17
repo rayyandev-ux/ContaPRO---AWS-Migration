@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 
 import { useState } from "react";
 import { Download, Send, Check, AlertCircle, Loader2 } from "lucide-react";
@@ -7,8 +8,6 @@ import { useTranslations } from "next-intl";
 import GlassCombobox from "@/components/ui/glass-combobox";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-
-const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080";
 
 export function ExportButton() {
   const t = useTranslations('Dashboard');

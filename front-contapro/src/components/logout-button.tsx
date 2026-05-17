@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -9,7 +10,7 @@ export default function LogoutButton({ className }: { className?: string }) {
     if (loading) return;
     setLoading(true);
     try {
-      await fetch("/api/logout", { method: "POST" });
+      await fetch(BASE + "/api/logout", { method: "POST" });
       window.location.href = "/login";
     } catch (e) {
       setLoading(false);

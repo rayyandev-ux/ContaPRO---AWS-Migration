@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,7 @@ export default function CreateGoalDialog() {
     };
 
     try {
-      const res = await fetch("/api/savings/goals", {
+      const res = await fetch(BASE + "/api/savings/goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

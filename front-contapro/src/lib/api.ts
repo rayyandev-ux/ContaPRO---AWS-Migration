@@ -1,4 +1,4 @@
-const BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
+export const BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
 
 // Caché simple en memoria (sólo en cliente) para GETs
 const g: any = globalThis as any;
@@ -37,8 +37,12 @@ export async function apiJson<T = any>(path: string, init: RequestInit = {}): Pr
       }
     }
 
-    const isProxy = path.startsWith('/api/proxy');
-    const url = isProxy ? path : `${BASE}${path}`;
+    let urlPath = path;
+    if (path.startsWith('/api/proxy/')) {
+      urlPath = '/api/' + path.substring(11);
+    }
+    const url = `${BASE}${urlPath}`;
+
     const res = await fetch(url, {
       ...init,
       headers: {
@@ -73,8 +77,12 @@ export async function apiJson<T = any>(path: string, init: RequestInit = {}): Pr
 
 export async function apiMultipart<T = any>(path: string, formData: FormData): Promise<{ ok: boolean; data?: T; error?: string }>{
   try {
-    const isProxy = path.startsWith('/api/proxy');
-    const url = isProxy ? path : `${BASE}${path}`;
+    let urlPath = path;
+    if (path.startsWith('/api/proxy/')) {
+      urlPath = '/api/' + path.substring(11);
+    }
+    const url = `${BASE}${urlPath}`;
+    
     const res = await fetch(url, {
       method: "POST",
       body: formData,

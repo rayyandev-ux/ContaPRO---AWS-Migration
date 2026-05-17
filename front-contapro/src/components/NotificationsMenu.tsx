@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 
 import { useState, useEffect, useRef } from "react";
 import { Bell, Check, X, Loader2, AlertCircle } from "lucide-react";
@@ -28,7 +29,7 @@ export default function NotificationsMenu() {
 
   async function fetchPending() {
     try {
-      const res = await fetch("/api/proxy/expenses/pending");
+      const res = await fetch(BASE + "/api/expenses/pending");
       if (res.ok) {
         const data = await res.json();
         setItems(data.items || []);
@@ -61,7 +62,7 @@ export default function NotificationsMenu() {
   async function handleAction(id: string, action: "approve" | "reject") {
     setProcessingId(id);
     try {
-      const res = await fetch(`/api/proxy/expenses/pending/${id}/${action}`, {
+      const res = await fetch(`${BASE}/api/expenses/pending/${id}/${action}`, {
         method: "POST",
       });
       

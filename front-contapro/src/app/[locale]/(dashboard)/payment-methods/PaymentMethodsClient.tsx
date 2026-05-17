@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 import { useState, useEffect, useCallback } from "react";
 import { useRealtime } from "@/hooks/useRealtime";
 import { motion, AnimatePresence } from "framer-motion";
@@ -50,14 +51,8 @@ type Transaction = {
 };
 
 type Props = {
-  items: Method[];
-  defaultPaymentMethodId: string | null;
-  createMethod: (formData: FormData) => Promise<void>;
-  setDefault: (formData: FormData) => Promise<void>;
-  deactivate: (formData: FormData) => Promise<void>;
-  updateMethod: (formData: FormData) => Promise<void>;
-  transferMethod: (formData: FormData) => Promise<void>;
-  rebalanceMethod: (formData: FormData) => Promise<void>;
+  initialItems: Method[];
+  initialDefaultId: string | null;
 };
 
 function getIcon(type: string, provider: string) {
@@ -119,16 +114,12 @@ function formatDate(iso: string) {
 }
 
 export default function PaymentMethodsClient({
-  items,
-  defaultPaymentMethodId,
-  createMethod,
-  setDefault,
-  deactivate,
-  updateMethod,
-  transferMethod,
-  rebalanceMethod,
+  initialItems,
+  initialDefaultId,
 }: Props) {
   const t = useTranslations("PaymentMethods");
+  const [items, setItems] = useState<Method[]>(initialItems);
+  const [defaultPaymentMethodId, setDefaultPaymentMethodId] = useState<string | null>(initialDefaultId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingMethod, setEditingMethod] = useState<Method | null>(null);
   const [transferMethodId, setTransferMethodId] = useState<string | null>(null);
@@ -139,12 +130,120 @@ export default function PaymentMethodsClient({
   const [loadingTx, setLoadingTx] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  const selectedMethod = items.find((m) => m.id === selectedId);
+  const fetchItems = useCallback(async () => {
+    try {
+      const { apiJson } = await import("@/lib/api");
+      const res = await apiJson("/api/payment-methods");
+      if (res.ok && res.data) {
+        setItems(res.data.items || []);
+        setDefaultPaymentMethodId(res.data.defaultPaymentMethodId || null);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const createMethod = async (formData: FormData) => {
+    const payload = {
+      name: String(formData.get('name') || ''),
+      provider: String(formData.get('provider') || ''),
+      type: String(formData.get('type') || ''),
+      cardLast4: String(formData.get('cardLast4') || ''),
+      accountNumber: String(formData.get('accountNumber') || ''),
+      currency: String(formData.get('currency') || ''),
+      balance: Number(formData.get('balance') || 0),
+      isFavorite: formData.get('isFavorite') === 'true',
+      createInitialTransaction: formData.get('createInitialTransaction') === 'true',
+    } as any;
+    if (!payload.name || !payload.type) return;
+    if (!payload.provider) payload.provider = payload.type;
+    if (!payload.currency) payload.currency = 'PEN';
+    if (payload.cardLast4 && payload.cardLast4.trim() === '') delete payload.cardLast4;
+    if (payload.accountNumber && payload.accountNumber.trim() === '') delete payload.accountNumber;
+    
+    const { apiJson } = await import("@/lib/api");
+    await apiJson("/api/payment-methods", { method: "POST", body: JSON.stringify(payload) });
+    await fetchItems();
+  };
+
+  const setDefault = async (formData: FormData) => {
+    const id = String(formData.get('id') || '');
+    if (!id) return;
+    const { apiJson } = await import("@/lib/api");
+    await apiJson(`/api/payment-methods/${id}/default`, { method: "POST" });
+    await fetchItems();
+  };
+
+  const deactivate = async (formData: FormData) => {
+    const id = String(formData.get('id') || '');
+    const deleteTransactions = formData.get('deleteTransactions') === 'true';
+    if (!id) return;
+    const { apiJson } = await import("@/lib/api");
+    await apiJson(`/api/payment-methods/${id}?deleteTransactions=${deleteTransactions}`, { method: "DELETE" });
+    await fetchItems();
+  };
+
+  const updateMethod = async (formData: FormData) => {
+    const id = String(formData.get('id') || '');
+    const name = String(formData.get('name') || '');
+    const provider = String(formData.get('provider') || '');
+    const type = String(formData.get('type') || '');
+    const cardLast4 = String(formData.get('cardLast4') || '');
+    const accountNumber = String(formData.get('accountNumber') || '');
+    const currency = String(formData.get('currency') || '');
+    const balance = formData.get('balance');
+    const isFavorite = formData.get('isFavorite') === 'true';
+    
+    if (!id) return;
+    const payload: any = {};
+    if (name) payload.name = name;
+    if (provider) payload.provider = provider;
+    if (type) payload.type = type;
+    if (currency) payload.currency = currency;
+    if (cardLast4) payload.cardLast4 = cardLast4;
+    if (accountNumber) payload.accountNumber = accountNumber;
+    if (balance !== null) payload.balance = Number(balance);
+    payload.isFavorite = isFavorite;
+
+    const { apiJson } = await import("@/lib/api");
+    await apiJson(`/api/payment-methods/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+    await fetchItems();
+  };
+
+  const transferMethod = async (formData: FormData) => {
+    const sourceId = String(formData.get('sourceId') || '');
+    const targetAccountId = String(formData.get('targetAccountId') || '');
+    const amount = Number(formData.get('amount') || 0);
+    const description = String(formData.get('description') || '');
+
+    if (!sourceId || !targetAccountId || amount <= 0) return;
+    const { apiJson } = await import("@/lib/api");
+    await apiJson(`/api/payment-methods/${sourceId}/transfer`, { 
+      method: "POST", 
+      body: JSON.stringify({ targetAccountId, amount, description }) 
+    });
+    await fetchItems();
+  };
+
+  const rebalanceMethod = async (formData: FormData) => {
+    const id = String(formData.get('id') || '');
+    const realBalance = Number(formData.get('realBalance') || 0);
+
+    if (!id) return;
+    const { apiJson } = await import("@/lib/api");
+    await apiJson(`/api/payment-methods/${id}/rebalance`, { 
+      method: "POST", 
+      body: JSON.stringify({ realBalance }) 
+    });
+    await fetchItems();
+  };
+
+  const selectedMethod = items.find((m: Method) => m.id === selectedId);
 
   const fetchTransactions = useCallback(async (id: string) => {
     setLoadingTx(true);
     try {
-      const res = await fetch(`/api/proxy/payment-methods/${id}/transactions?limit=10`);
+      const res = await fetch(`${BASE}/api/payment-methods/${id}/transactions?limit=10`);
       if (res.ok) {
         const data = await res.json();
         setTransactions(data.transactions || []);
@@ -207,7 +306,7 @@ export default function PaymentMethodsClient({
             {t("emptyTitle")}
           </h2>
           <p className="text-sm text-white/50 mb-6">{t("emptyDescription")}</p>
-          <CreateMethodDialog onSubmit={createMethod}>
+          <CreateMethodDialog onSubmit={async (formData) => { await createMethod(formData); }}>
             <button className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-indigo-600/80 to-purple-600/80 text-white font-medium text-sm shadow-[0_0_20px_-4px_rgba(139,92,246,0.4)] hover:shadow-[0_0_30px_-4px_rgba(139,92,246,0.6)] transition-all hover:scale-105 active:scale-95 border border-white/10">
               <Plus className="w-4 h-4" />
               {t("createNew")}
@@ -230,7 +329,7 @@ export default function PaymentMethodsClient({
           <p className="text-sm md:text-base text-white/50 mt-1">{t("description")}</p>
         </div>
         <div id="btn-new-payment-method">
-          <CreateMethodDialog onSubmit={createMethod}>
+          <CreateMethodDialog onSubmit={async (formData) => { await createMethod(formData); }}>
             <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-medium text-sm border border-white/10 backdrop-blur-md shadow-[0_0_15px_-3px_rgba(255,255,255,0.05)] transition-all hover:scale-105 active:scale-95">
               <Plus className="w-4 h-4" />
               {t("createNew")}
@@ -242,7 +341,7 @@ export default function PaymentMethodsClient({
       {/* Cards Grid */}
       <div id="payment-methods-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         <AnimatePresence mode="popLayout">
-          {items.map((m, i) => {
+          {items.map((m: Method, i: number) => {
             const Icon = getIcon(m.type, m.provider);
             const isSelected = selectedId === m.id;
             const isDefault = defaultPaymentMethodId === m.id;
@@ -402,7 +501,7 @@ export default function PaymentMethodsClient({
                 {t("deleteConfirm")}
               </h3>
               <p className="text-sm text-white/50 mb-6">
-                {items.find((m) => m.id === deleteConfirmId)?.name}
+                {items.find((m: Method) => m.id === deleteConfirmId)?.name}
               </p>
               
               <form action={async (fd) => {
@@ -544,12 +643,17 @@ export default function PaymentMethodsClient({
       />
 
       {/* Rebalance Dialog */}
-      <RebalanceDialog
-        method={items.find(m => m.id === rebalanceMethodId) || items[0] || ({} as Method)}
-        onRebalance={rebalanceMethod}
-        open={!!rebalanceMethodId}
-        onOpenChange={(open) => !open && setRebalanceMethodId(null)}
-      />
+      {rebalanceMethodId && (
+        <RebalanceDialog
+          method={items.find(m => m.id === rebalanceMethodId) || items[0] || ({} as Method)}
+          onRebalance={async (formData) => {
+            await rebalanceMethod(formData);
+            setRebalanceMethodId(null);
+          }}
+          open={!!rebalanceMethodId}
+          onOpenChange={(open) => !open && setRebalanceMethodId(null)}
+        />
+      )}
     </section>
   );
 }

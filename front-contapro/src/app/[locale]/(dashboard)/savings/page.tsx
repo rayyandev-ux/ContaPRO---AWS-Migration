@@ -1,40 +1,42 @@
-import { cookies } from "next/headers";
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wallet } from "lucide-react";
+import { Wallet, Loader2 } from "lucide-react";
 import CreateGoalDialog from "./_components/CreateGoalDialog";
 import GoalCard from "./_components/GoalCard";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
+import { apiJson } from "@/lib/api";
 
-async function getGoals() {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join("; ");
-  const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080";
+export default function SavingsPage() {
+  const t = useTranslations('Savings');
+  const [goals, setGoals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    const res = await fetch(`${BASE}/api/savings/goals`, {
-      headers: { cookie: cookieHeader },
-      cache: "no-store",
-      next: { tags: ["savings-goals"] },
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      return data.goals || [];
+  useEffect(() => {
+    async function loadGoals() {
+      try {
+        const res = await apiJson("/api/proxy/savings/goals");
+        if (res.ok && res.data) {
+          setGoals(res.data.goals || []);
+        }
+      } catch (error) {
+        console.error("Error fetching goals:", error);
+      } finally {
+        setLoading(false);
+      }
     }
-  } catch (error) {
-    console.error("Error fetching goals:", error);
-  }
-  return [];
-}
+    loadGoals();
+  }, []);
 
-export default async function SavingsPage() {
-  const t = await getTranslations('Savings');
-  const goals = await getGoals();
-  
-  const totalSaved = goals.reduce((acc: number, g: any) => acc + (g.currency === 'PEN' ? g.currentAmount : 0), 0); // Simplification: Sum only PEN for total or separate. 
-  // Better: Show total per currency or just assume main currency for summary. 
-  // Let's just show total saved in PEN for now (or multiple if mixed).
-  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-10 h-10 animate-spin text-white/50" />
+      </div>
+    );
+  }
+
   // Group by currency
   const totalsByCurrency = goals.reduce((acc: any, g: any) => {
     acc[g.currency] = (acc[g.currency] || 0) + g.currentAmount;

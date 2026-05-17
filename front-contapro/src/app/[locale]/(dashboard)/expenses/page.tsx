@@ -552,7 +552,7 @@ export default function Page() {
                     <TableCell className="text-right text-white font-medium tabular-nums">{formatAmount(it.amount, it.currency)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 duration-300">
-                        <Link href={`/expenses/${it.id}`} className="inline-flex items-center justify-center h-7 w-7 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors">
+                        <Link href={`/expenses/detail?id=${it.id}`} className="inline-flex items-center justify-center h-7 w-7 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors">
                           <Eye className="h-4 w-4" />
                         </Link>
                         {it.document && (
@@ -650,7 +650,7 @@ export default function Page() {
                 </div>
 
                 <div className="mt-3 flex items-center justify-end gap-2 border-t border-white/10 pt-3">
-                   <Link href={`/expenses/${it.id}`} className="text-xs text-white/60 hover:text-white">{t('viewDetail')}</Link>
+                   <Link href={`/expenses/detail?id=${it.id}`} className="text-xs text-white/60 hover:text-white">{t('viewDetail')}</Link>
                 </div>
               </motion.div>
             ))}
@@ -756,7 +756,7 @@ export default function Page() {
                               <TableCell className="text-right text-white font-medium tabular-nums">{formatAmount(it.amount, it.currency)}</TableCell>
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Link href={`/expenses/${it.id}`} className="inline-flex items-center justify-center h-7 w-7 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors">
+                                  <Link href={`/expenses/detail?id=${it.id}`} className="inline-flex items-center justify-center h-7 w-7 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors">
                                     <Eye className="h-4 w-4" />
                                   </Link>
                                   {it.document && (
@@ -802,7 +802,7 @@ export default function Page() {
                           </div>
                           
                           <div className="mt-3 flex items-center justify-end gap-2 border-t border-white/10 pt-3">
-                             <Link href={`/expenses/${it.id}`} className="text-xs text-white/60 hover:text-white">{t('viewDetail')}</Link>
+                             <Link href={`/expenses/detail?id=${it.id}`} className="text-xs text-white/60 hover:text-white">{t('viewDetail')}</Link>
                           </div>
                         </div>
                       ))}
@@ -899,7 +899,7 @@ export default function Page() {
                 </div>
               </div>
               
-              <Link href={`/expenses/${highestExpenseItem.id}`} className="w-full inline-flex items-center justify-center h-11 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors">
+              <Link href={`/expenses/detail?id=${highestExpenseItem.id}`} className="w-full inline-flex items-center justify-center h-11 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors">
                 Ver Detalles Completos
               </Link>
             </div>

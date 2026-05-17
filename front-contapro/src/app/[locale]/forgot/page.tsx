@@ -1,4 +1,5 @@
 "use client";
+import { BASE } from "@/lib/api";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import Image from "next/image";
@@ -33,7 +34,7 @@ export default function ForgotPasswordPage() {
       return;
     }
     try {
-      const res = await fetch("/api/forgot", {
+      const res = await fetch(BASE + "/api/auth/forgot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

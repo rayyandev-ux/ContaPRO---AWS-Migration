@@ -1,5 +1,6 @@
-
 "use client";
+import { BASE } from "@/lib/api";
+
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter, usePathname } from "@/i18n/routing";
@@ -94,7 +95,7 @@ export default function OutlookLinkCard({ maxSlots = 1 }: { maxSlots?: number })
   async function refresh() {
     setLoading(true);
     try {
-      const res = await fetch("/api/proxy/integrations/outlook/status", { credentials: "include" });
+      const res = await fetch(BASE + "/api/integrations/outlook/status", { credentials: "include" });
       const data = await res.json();
       setStatus(data);
       
@@ -118,7 +119,7 @@ export default function OutlookLinkCard({ maxSlots = 1 }: { maxSlots?: number })
     const customName = newCustomName !== undefined ? newCustomName : (activeIntegration?.settings.customName);
 
     try {
-        const res = await fetch("/api/proxy/integrations/outlook/settings", { 
+        const res = await fetch(BASE + "/api/integrations/outlook/settings", { 
             method: "PUT", 
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ allowedSenders: senders, autoApprove: approve, email: selectedEmail, customName }),
@@ -167,7 +168,7 @@ export default function OutlookLinkCard({ maxSlots = 1 }: { maxSlots?: number })
     if (!selectedEmail) return;
     setLoading(true);
     try {
-      await fetch("/api/proxy/integrations/outlook/disconnect", { 
+      await fetch(BASE + "/api/integrations/outlook/disconnect", { 
         method: "POST", 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: selectedEmail }),
@@ -187,7 +188,7 @@ export default function OutlookLinkCard({ maxSlots = 1 }: { maxSlots?: number })
     if (!selectedEmail) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/proxy/integrations/outlook/test", { 
+      const res = await fetch(BASE + "/api/integrations/outlook/test", { 
         method: "POST", 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: selectedEmail }),

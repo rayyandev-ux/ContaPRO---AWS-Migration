@@ -1,32 +1,48 @@
-import { cookies } from "next/headers";
-import { ReactNode } from "react";
+"use client";
+
+import { ReactNode, useEffect, useState } from "react";
 import DashboardShell from "./_components/DashboardShell";
 import SubscriptionGuard from "./_components/SubscriptionGuard";
 import Aurora from "@/components/Aurora";
+import { apiJson } from "@/lib/api";
+import { Loader2 } from "lucide-react";
 
-export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join("; ");
-  let user: { name?: string | null; email?: string | null; plan?: string; planExpires?: string; trialEnds?: string } | undefined;
-  let tutorialSeen = false;
-  try {
-    const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080";
-    const res = await fetch(`${BASE}/api/auth/me`, {
-      headers: { cookie: cookieHeader },
-      next: { revalidate: 0, tags: ['auth-me'] }, // Ensure fresh data for subscription checks
-    });
-    if (res.ok) {
-      const data = await res.json();
-      user = { 
-        name: data?.user?.name ?? null, 
-        email: data?.user?.email ?? null,
-        plan: data?.user?.plan,
-        planExpires: data?.user?.planExpires,
-        trialEnds: data?.user?.trialEnds
-      };
-      tutorialSeen = data?.user?.tutorialSeen === true;
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<{ name?: string | null; email?: string | null; plan?: string; planExpires?: string; trialEnds?: string } | undefined>(undefined);
+  const [tutorialSeen, setTutorialSeen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const res = await apiJson("/api/auth/me");
+        if (res.ok && res.data) {
+          const data = res.data;
+          setUser({ 
+            name: data?.user?.name ?? null, 
+            email: data?.user?.email ?? null,
+            plan: data?.user?.plan,
+            planExpires: data?.user?.planExpires,
+            trialEnds: data?.user?.trialEnds
+          });
+          setTutorialSeen(data?.user?.tutorialSeen === true);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     }
-  } catch {}
+    fetchUser();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-black">
+        <Loader2 className="w-10 h-10 animate-spin text-white/50" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden font-stack-sans hero-dark bg-black">

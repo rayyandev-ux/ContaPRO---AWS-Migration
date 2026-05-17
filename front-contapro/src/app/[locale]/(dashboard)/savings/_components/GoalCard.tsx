@@ -29,7 +29,7 @@ export default function GoalCard({ goal }: { goal: Goal }) {
   });
 
   return (
-    <Link href={`/savings/${goal.id}`}>
+    <Link href={`/savings/detail?id=${goal.id}`}>
       <Card className="hover:bg-white/10 transition-colors cursor-pointer h-full bg-white/5 backdrop-blur-2xl border-white/10 text-white rounded-3xl">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium line-clamp-1">

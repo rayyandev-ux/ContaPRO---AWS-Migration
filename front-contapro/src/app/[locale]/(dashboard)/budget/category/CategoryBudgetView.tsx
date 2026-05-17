@@ -30,7 +30,6 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
 interface CategoryBudgetViewProps {
-  monthLabel: string;
   amount: number; // General budget amount
   catTotal: number; // Total assigned to categories
   categories: Array<{ id: string; name: string }>;
@@ -42,23 +41,22 @@ interface CategoryBudgetViewProps {
     remaining: number 
   }>;
   currencyCode: string;
-  monthStr: string;
-  yearStr: string;
-  onSave: (formData: FormData) => Promise<void>; // Server action for creating/updating
-  onDelete: (formData: FormData) => Promise<void>; // Server action for deleting
+  generalAlertThreshold: number | null;
+  formErrorMsg: string | null;
+  monthNum: number;
+  yearNum: number;
 }
 
 export default function CategoryBudgetView({
-  monthLabel,
   amount,
   catTotal,
   categories,
   catStatuses,
   currencyCode,
-  monthStr,
-  yearStr,
-  onSave,
-  onDelete
+  generalAlertThreshold,
+  formErrorMsg,
+  monthNum,
+  yearNum
 }: CategoryBudgetViewProps) {
   const t = useTranslations('CategoryBudget');
   const [isPending, startTransition] = useTransition();
@@ -104,28 +102,53 @@ export default function CategoryBudgetView({
     setEditingItem(item.categoryId);
   };
 
-  const handleSave = async (formData: FormData) => {
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const categoryId = String(formData.get("categoryId") || "");
+    const amountStr = String(formData.get("catAmount") ?? "");
+    const thresholdStr = String(formData.get("catThreshold") ?? "");
+    const thresholdType = String(formData.get("catThresholdType") || "amount");
+    const currency = String(formData.get("catCurrency") || "");
+    const amountVal = amountStr.trim() !== "" ? Number(amountStr) : NaN;
+    let threshold = thresholdStr.trim() !== "" ? Number(thresholdStr) : NaN;
+    if (thresholdType === 'percent' && !Number.isNaN(threshold)) threshold = threshold / 100;
+
+    const payload: any = {
+      categoryId,
+      month: monthNum,
+      year: yearNum,
+    };
+    if (!categoryId) return;
+    if (!Number.isNaN(amountVal)) payload.amount = amountVal;
+    if (!Number.isNaN(threshold)) payload.alertThreshold = threshold;
+    if (currency) payload.currency = currency;
+
     startTransition(async () => {
       try {
-        await onSave(formData);
-        setIsCreateOpen(false);
-        setEditingItem(null);
-      } catch (e) {
-        console.error("Error saving:", e);
-        // Toast or alert could go here
+        const { apiJson } = await import("@/lib/api");
+        const res = await apiJson("/api/budget/category", { method: "POST", body: JSON.stringify(payload) });
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          alert(res.error || "Error");
+        }
+      } catch (err) {
+        alert("Network error");
       }
     });
   };
 
   const handleDelete = async (categoryId: string) => {
     if (!confirm("¿Estás seguro de eliminar el presupuesto de esta categoría?")) return;
-    const formData = new FormData();
-    formData.append("categoryId", categoryId);
     startTransition(async () => {
       try {
-        await onDelete(formData);
-      } catch (e) {
-        console.error("Error deleting:", e);
+        const qs = new URLSearchParams({ categoryId, month: String(monthNum), year: String(yearNum) }).toString();
+        const { apiJson } = await import("@/lib/api");
+        await apiJson(`/api/budget/category?${qs}`, { method: "DELETE" });
+        window.location.reload();
+      } catch (err) {
+        alert("Network error");
       }
     });
   };
@@ -139,7 +162,7 @@ export default function CategoryBudgetView({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-playfair font-bold tracking-tight text-white">{t('title')}</h2>
-          <p className="text-white/50">{t('subtitle', { month: monthLabel })}</p>
+          <p className="text-white/50">{t('subtitle', { month: `${yearNum}-${String(monthNum).padStart(2, '0')}` })}</p>
         </div>
         <div className="flex items-center gap-2">
            <Button onClick={openCreate} disabled={!canAddMore || isPending} className="bg-white text-black hover:bg-white/90 rounded-xl">
@@ -261,10 +284,10 @@ export default function CategoryBudgetView({
               {editingItem ? "Modifica el límite de gasto para esta categoría." : "Define un límite de gasto para una categoría."}
             </DialogDescription>
           </DialogHeader>
-          <form action={handleSave} className="grid gap-4 py-4">
+          <form onSubmit={handleSave} className="grid gap-4 py-4">
             <input type="hidden" name="categoryId" value={editingItem || selectedCategory} />
-            <input type="hidden" name="month" value={monthStr} />
-            <input type="hidden" name="year" value={yearStr} />
+            <input type="hidden" name="month" value={monthNum} />
+            <input type="hidden" name="year" value={yearNum} />
             
             <div className="grid gap-2">
               <Label htmlFor="category" className="text-white/70">Categoría</Label>
