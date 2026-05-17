@@ -1,3 +1,5 @@
+import { fetchAuthSession } from 'aws-amplify/auth';
+
 export const BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
 
 // Caché simple en memoria (sólo en cliente) para GETs
@@ -43,13 +45,24 @@ export async function apiJson<T = any>(path: string, init: RequestInit = {}): Pr
     }
     const url = `${BASE}${urlPath}`;
 
+    let authHeader = {};
+    try {
+      const session = await fetchAuthSession();
+      if (session.tokens?.accessToken) {
+        authHeader = { "Authorization": `Bearer ${session.tokens.accessToken.toString()}` };
+      }
+    } catch (e) {
+      // Ignorar error si no hay sesión (quizás es una ruta pública)
+    }
+
     const res = await fetch(url, {
       ...init,
       headers: {
         ...(init.headers || {}),
+        ...authHeader,
         ...(init.body ? { "Content-Type": "application/json" } : {}),
       },
-      credentials: "include",
+      credentials: "omit", // Cambiado de include a omit porque ya usamos el Header Authorization
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 402) {
@@ -83,10 +96,19 @@ export async function apiMultipart<T = any>(path: string, formData: FormData): P
     }
     const url = `${BASE}${urlPath}`;
     
+    let authHeader: any = {};
+    try {
+      const session = await fetchAuthSession();
+      if (session.tokens?.accessToken) {
+        authHeader = { "Authorization": `Bearer ${session.tokens.accessToken.toString()}` };
+      }
+    } catch (e) {}
+
     const res = await fetch(url, {
       method: "POST",
       body: formData,
-      credentials: "include",
+      headers: authHeader,
+      credentials: "omit", // Cambiado a omit
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 402) {

@@ -12,6 +12,7 @@ import { ChevronLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { confirmResetPassword } from 'aws-amplify/auth';
 
 function ResetForm() {
   const router = useRouter();
@@ -43,6 +44,21 @@ function ResetForm() {
     if (!password || password.length < 6) { setPasswordError("Usa al menos 6 caracteres"); valid = false; }
     if (!valid) { setLoading(false); return; }
     try {
+      if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
+        try {
+          await confirmResetPassword({
+            username: email,
+            confirmationCode: code,
+            newPassword: password
+          });
+          // Si Cognito funcionó, hacemos login y redirigimos
+          router.push("/login");
+          return;
+        } catch (authError) {
+          console.warn("Cognito reset password error", authError);
+        }
+      }
+
       const res = await fetch(BASE + "/api/auth/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code, password }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || d?.ok !== true) {

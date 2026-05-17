@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import SmoothScroll from "@/components/SmoothScroll";
 import { PHProvider } from "@/components/providers/PHProvider";
 import PostHogPageView from "@/components/providers/PostHogPageView";
+import AmplifyProvider from "@/components/providers/AmplifyProvider";
 import {NextIntlClientProvider} from 'next-intl';
 import {getMessages} from 'next-intl/server';
 import {notFound} from 'next/navigation';
@@ -151,21 +152,23 @@ export default async function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} ${playfair.variable} ${permanentMarker.variable} ${montserrat.variable} antialiased`}
       >
-        <NextIntlClientProvider messages={messages}>
-          <PHProvider>
-            <PostHogPageView />
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="dark"
-              forcedTheme="dark"
-              disableTransitionOnChange
-            >
-              <SmoothScroll />
-              {children}
-              <Toaster position="bottom-right" closeButton richColors />
-            </ThemeProvider>
-          </PHProvider>
-        </NextIntlClientProvider>
+        <AmplifyProvider>
+          <NextIntlClientProvider messages={messages}>
+            <PHProvider>
+              <PostHogPageView />
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="dark"
+                forcedTheme="dark"
+                disableTransitionOnChange
+              >
+                <SmoothScroll />
+                {children}
+                <Toaster position="bottom-right" closeButton richColors />
+              </ThemeProvider>
+            </PHProvider>
+          </NextIntlClientProvider>
+        </AmplifyProvider>
       </body>
     </html>
   );

@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import Aurora from "@/components/Aurora";
 import { useTranslations } from 'next-intl';
 import { cn } from "@/lib/utils";
+import { signIn } from 'aws-amplify/auth';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
 
@@ -50,6 +51,25 @@ export default function LoginContent() {
       return;
     }
     try {
+      // 1. Intentar iniciar sesión con AWS Cognito (Amplify)
+      if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
+        try {
+          const { isSignedIn, nextStep } = await signIn({
+            username: email,
+            password: password,
+          });
+          if (isSignedIn) {
+            router.push('/dashboard');
+            return;
+          }
+        } catch (authError: any) {
+          console.warn("Amplify SignIn Error", authError);
+          // Si el usuario no existe en Cognito o da error, hacemos un fallback a nuestro backend (Legacy)
+          // El backend puede tener la lógica de migrarlo (Smart Merge) o usar cookies legacy
+        }
+      }
+
+      // 2. Fallback a nuestro propio backend (Legacy / Migración on-the-fly)
       const { ok, error } = await apiJson("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password, remember: !!form.get("remember") }),

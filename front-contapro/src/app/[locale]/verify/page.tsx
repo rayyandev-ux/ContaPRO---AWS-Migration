@@ -12,6 +12,7 @@ import { ArrowRight, ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import Aurora from "@/components/Aurora";
 import { cn } from "@/lib/utils";
+import { confirmSignUp, resendSignUpCode } from 'aws-amplify/auth';
 
 function VerifyForm() {
   const t = useTranslations('Verify');
@@ -46,14 +47,34 @@ function VerifyForm() {
       setLoading(false);
       return;
     }
-    const { ok, error } = await apiJson("/api/auth/verify", {
-      method: "POST",
-      body: JSON.stringify({ email, code: clean }),
-    });
-    if (!ok) {
-      setError(error || t('errors.invalidCode'));
-    } else {
-      router.push("/pricing");
+
+    try {
+      if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
+        try {
+          const { isSignUpComplete } = await confirmSignUp({
+            username: email,
+            confirmationCode: clean
+          });
+          if (isSignUpComplete) {
+            router.push("/pricing");
+            return;
+          }
+        } catch (authError: any) {
+          console.warn("Cognito verification error", authError);
+        }
+      }
+
+      const { ok, error } = await apiJson("/api/auth/verify", {
+        method: "POST",
+        body: JSON.stringify({ email, code: clean }),
+      });
+      if (!ok) {
+        setError(error || t('errors.invalidCode'));
+      } else {
+        router.push("/pricing");
+      }
+    } catch (e) {
+      setError(t('errors.invalidCode'));
     }
     setLoading(false);
   };
@@ -62,14 +83,26 @@ function VerifyForm() {
     setLoading(true);
     setError(null);
     setInfo(null);
-    const { ok, error } = await apiJson("/api/auth/resend", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-    if (!ok) {
-      setError(error || t('errors.resendFailed'));
-    } else {
-      setInfo(t('info.resendSuccess'));
+    try {
+      if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
+        try {
+          await resendSignUpCode({ username: email });
+        } catch (authError) {
+          console.warn("Cognito resend code error", authError);
+        }
+      }
+
+      const { ok, error } = await apiJson("/api/auth/resend", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      if (!ok) {
+        setError(error || t('errors.resendFailed'));
+      } else {
+        setInfo(t('info.resendSuccess'));
+      }
+    } catch (e) {
+      setError(t('errors.resendFailed'));
     }
     setLoading(false);
   };

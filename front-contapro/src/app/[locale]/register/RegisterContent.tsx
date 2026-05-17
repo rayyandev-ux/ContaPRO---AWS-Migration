@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Aurora from "@/components/Aurora";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
+import { signUp } from 'aws-amplify/auth';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
 
@@ -99,11 +100,27 @@ export default function RegisterContent() {
 
     setLoading(true);
     setError(null);
-
     try {
+      if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
+        try {
+          await signUp({
+            username: email,
+            password,
+            options: {
+              userAttributes: {
+                email,
+                name,
+              }
+            }
+          });
+        } catch (authErr: any) {
+          console.warn("Cognito sign up error, trying legacy", authErr);
+        }
+      }
+
       const { ok, error: apiError } = await apiJson("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ name, email, password, language: "es" }),
+        body: JSON.stringify({ email, password, name, language: "es" }),
       });
 
       if (!ok) {
