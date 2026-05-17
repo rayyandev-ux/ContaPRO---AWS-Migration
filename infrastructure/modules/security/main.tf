@@ -40,10 +40,10 @@ resource "aws_security_group" "ecs" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "Traffic from ALB"
-    from_port       = var.container_port
-    to_port         = var.container_port
-    protocol        = "tcp"
+    description = "Traffic from ALB"
+    from_port   = var.container_port
+    to_port     = var.container_port
+    protocol    = "tcp"
     # IMPORTANT: We don't use IP addresses, we reference the ALB's Security Group ID
     security_groups = [aws_security_group.alb.id]
   }

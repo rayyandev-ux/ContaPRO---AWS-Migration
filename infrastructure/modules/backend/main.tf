@@ -1,3 +1,6 @@
+data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
+
 # Elastic Container Registry (ECR)
 resource "aws_ecr_repository" "backend" {
   name                 = "${var.project_name}-backend-${var.environment}"
@@ -131,7 +134,7 @@ resource "aws_iam_policy" "ecs_secrets_policy" {
         ]
         Resource = [
           var.db_credentials_secret_arn,
-          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:*" # En caso de que tengas el secreto global de config
+          "arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:*" # En caso de que tengas el secreto global de config
         ]
       }
     ]
@@ -256,7 +259,7 @@ resource "aws_ecs_service" "backend" {
 
   load_balancer {
     target_group_arn = aws_lb_target_group.main.arn
-    container_name   = "${var.project_name}-backend"
+    container_name   = "${var.project_name}-backend-container-${var.environment}"
     container_port   = var.container_port
   }
 
