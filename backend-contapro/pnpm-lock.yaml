@@ -14,6 +14,9 @@ importers:
       '@aws-sdk/client-secrets-manager':
         specifier: ^3.1048.0
         version: 3.1048.0
+      '@aws-sdk/client-ses':
+        specifier: ^3.1048.0
+        version: 3.1048.0
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1048.0
         version: 3.1048.0
@@ -197,6 +200,10 @@ packages:
 
   '@aws-sdk/client-secrets-manager@3.1048.0':
     resolution: {integrity: sha512-GELp/vb1Kzk/xBUOx21OGti12OiuMwSYBoFAq5RhIcJGC7eBzSUa40zZZlsQsGXDW0OQb9Er+Ll3htr9doGFeg==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-ses@3.1048.0':
+    resolution: {integrity: sha512-AQdlxZOclCpBpk/Ak6gx61NSbBz+vBqpClGfadTrip1wzJJrmaLBX+jOK6fIs7I/Ro+GVo0IE8j5W8uXpN+/5w==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/core@3.974.11':
@@ -3200,6 +3207,19 @@ snapshots:
       tslib: 2.8.1
 
   '@aws-sdk/client-secrets-manager@3.1048.0':
+    dependencies:
+      '@aws-crypto/sha256-browser': 5.2.0
+      '@aws-crypto/sha256-js': 5.2.0
+      '@aws-sdk/core': 3.974.11
+      '@aws-sdk/credential-provider-node': 3.972.42
+      '@aws-sdk/types': 3.973.8
+      '@smithy/core': 3.24.3
+      '@smithy/fetch-http-handler': 5.4.3
+      '@smithy/node-http-handler': 4.7.3
+      '@smithy/types': 4.14.2
+      tslib: 2.8.1
+
+  '@aws-sdk/client-ses@3.1048.0':
     dependencies:
       '@aws-crypto/sha256-browser': 5.2.0
       '@aws-crypto/sha256-js': 5.2.0

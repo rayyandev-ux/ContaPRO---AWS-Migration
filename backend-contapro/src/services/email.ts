@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { Resend } from 'resend';
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { config } from '../config.js';
 
 type Locale = 'es' | 'en';
@@ -72,8 +72,32 @@ function renderResetTemplate(opts: { code: string; resetUrl: string; brandName: 
   return { subject: t('subject'), text, html };
 }
 
+// --- Cliente SES (Singleton) ---
+let sesClient: SESClient | null = null;
+function getSesClient() {
+  if (!sesClient) {
+    sesClient = new SESClient({ region: config.awsRegion });
+  }
+  return sesClient;
+}
+
+async function sendSesEmail(from: string, to: string, subject: string, text: string, html: string) {
+  const client = getSesClient();
+  const command = new SendEmailCommand({
+    Source: from,
+    Destination: { ToAddresses: [to] },
+    Message: {
+      Subject: { Data: subject, Charset: 'UTF-8' },
+      Body: {
+        Text: { Data: text, Charset: 'UTF-8' },
+        Html: { Data: html, Charset: 'UTF-8' },
+      },
+    },
+  });
+  return client.send(command);
+}
+
 export async function sendVerificationEmail(app: FastifyInstance, to: string, code: string, options?: { locale?: Locale }) {
-  const resendApiKey = process.env.RESEND_API_KEY || '';
   const from = process.env.MAIL_FROM || 'ContaPRO <no-reply@contapro.lat>';
   const frontendUrl = config.frontendUrl;
   const brandName = process.env.EMAIL_BRAND_NAME || 'ContaPRO';
@@ -81,8 +105,8 @@ export async function sendVerificationEmail(app: FastifyInstance, to: string, co
   const logoUrl = process.env.EMAIL_LOGO_URL || '';
   const locale: Locale = (options?.locale || (process.env.EMAIL_LOCALE as Locale) || 'es') as Locale;
 
-  if (!resendApiKey) {
-    app.log.warn({ msg: 'Resend API key missing. Email sending disabled.', to, code });
+  if (process.env.USE_AWS_SES === 'false') {
+    app.log.warn({ msg: 'AWS SES disabled via env. Email sending skipped.', to, code });
     app.log.info({
       msg: 'Verification code (fallback)',
       to,
@@ -96,15 +120,10 @@ export async function sendVerificationEmail(app: FastifyInstance, to: string, co
   const { subject, text, html } = renderTemplate({ code, verifyUrl, brandName, brandColor, logoUrl: logoUrl || undefined, locale });
 
   try {
-    const resend = new Resend(resendApiKey);
-    const { data, error } = await resend.emails.send({ from, to, subject, text, html });
-    if (error) {
-      app.log.error({ msg: 'Failed to send verification email', to, err: error });
-      throw error;
-    }
-    app.log.info({ msg: 'Verification email sent', to, messageId: data?.id });
+    const data = await sendSesEmail(from, to, subject, text, html);
+    app.log.info({ msg: 'Verification email sent', to, messageId: data?.MessageId });
   } catch (err) {
-    app.log.error({ msg: 'Failed to send verification email', to, err });
+    app.log.error({ msg: 'Failed to send verification email via SES', to, err });
     throw err;
   }
 }
@@ -123,8 +142,8 @@ export async function sendPasswordResetEmail(app: FastifyInstance, to: string, c
   const logoUrl = process.env.EMAIL_LOGO_URL || '';
   const locale: Locale = (options?.locale || (process.env.EMAIL_LOCALE as Locale) || 'es') as Locale;
 
-  if (!resendApiKey) {
-    app.log.warn({ msg: 'Resend API key missing. Email sending disabled.', to, code });
+  if (process.env.USE_AWS_SES === 'false') {
+    app.log.warn({ msg: 'AWS SES disabled. Email sending skipped.', to, code });
     app.log.info({ msg: 'Password reset code (fallback)', to, code, resetUrl: `${frontendUrl}/reset?email=${encodeURIComponent(to)}` });
     return;
   }
@@ -132,15 +151,10 @@ export async function sendPasswordResetEmail(app: FastifyInstance, to: string, c
   const resetUrl = `${frontendUrl}/reset?email=${encodeURIComponent(to)}`;
   const { subject, text, html } = renderResetTemplate({ code, resetUrl, brandName, brandColor, logoUrl: logoUrl || undefined, locale });
   try {
-    const resend = new Resend(resendApiKey);
-    const { data, error } = await resend.emails.send({ from, to, subject, text, html });
-    if (error) {
-      app.log.error({ msg: 'Failed to send password reset email', to, err: error });
-      throw error;
-    }
-    app.log.info({ msg: 'Password reset email sent', to, messageId: data?.id });
+    const data = await sendSesEmail(from, to, subject, text, html);
+    app.log.info({ msg: 'Password reset email sent', to, messageId: data?.MessageId });
   } catch (err) {
-    app.log.error({ msg: 'Failed to send password reset email', to, err });
+    app.log.error({ msg: 'Failed to send password reset email via SES', to, err });
     throw err;
   }
 }
@@ -316,12 +330,10 @@ export async function sendPurchaseReceiptEmail(app: FastifyInstance, to: string,
     locale 
   });
 
-  const tryResend = async () => {
-    const resend = new Resend(resendApiKey);
-    app.log.info({ msg: 'email:purchase:sending', provider: 'resend', to, orderId: data.orderId });
-    const { data: result, error } = await resend.emails.send({ from, to, subject, text, html });
-    if (error) throw error;
-    app.log.info({ msg: 'email:purchase:sent', provider: 'resend', to, messageId: result?.id, orderId: data.orderId });
+  const trySes = async () => {
+    app.log.info({ msg: 'email:purchase:sending', provider: 'ses', to, orderId: data.orderId });
+    const result = await sendSesEmail(from, to, subject, text, html);
+    app.log.info({ msg: 'email:purchase:sent', provider: 'ses', to, messageId: result.MessageId, orderId: data.orderId });
   };
 
   const trySmtp = async () => {
@@ -342,12 +354,12 @@ export async function sendPurchaseReceiptEmail(app: FastifyInstance, to: string,
   };
 
   try {
-    if (resendApiKey) {
+    if (process.env.USE_AWS_SES !== 'false') {
       try {
-        await tryResend();
+        await trySes();
         return;
       } catch (e) {
-        app.log.error({ msg: 'email:purchase:resend_failed', to, orderId: data.orderId, err: e as any });
+        app.log.error({ msg: 'email:purchase:ses_failed', to, orderId: data.orderId, err: e as any });
       }
     }
     await trySmtp();
