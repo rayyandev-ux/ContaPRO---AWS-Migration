@@ -15,7 +15,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
 
   // Estado de Telegram
   app.get('/telegram/status', { schema: { summary: 'Estado de integracion Telegram' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     // Permitir ver estado sin gating para mostrar UI informativa
@@ -34,7 +34,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
 
   // Generar código y deep-link
   app.post('/telegram/link', { schema: { summary: 'Generar link de vinculación Telegram' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     if (!(await requireEntitled(userId, res))) return;
@@ -55,7 +55,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
 
   // Desvincular
   app.post('/telegram/unlink', { schema: { summary: 'Desvincular Telegram' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     if (!(await requireEntitled(userId, res))) return;
@@ -65,7 +65,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
 
   // Probar envío
   app.post('/telegram/test', { schema: { summary: 'Enviar mensaje de prueba por Telegram' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     if (!(await requireEntitled(userId, res))) return;
@@ -80,7 +80,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
   // ========================
 
   app.get('/whatsapp/status', { schema: { summary: 'Estado de integración WhatsApp' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     // Permitir ver estado sin gating para mostrar UI informativa
@@ -95,7 +95,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/whatsapp/link', { schema: { summary: 'Generar código de vinculación WhatsApp' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     if (!(await requireEntitled(userId, res))) return;
@@ -119,7 +119,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/whatsapp/unlink', { schema: { summary: 'Desvincular WhatsApp' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     if (!(await requireEntitled(userId, res))) return;
@@ -168,7 +168,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/whatsapp/test', { schema: { summary: 'Enviar mensaje de prueba por WhatsApp (Wazend)' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     if (!(await requireEntitled(userId, res))) return;
@@ -185,7 +185,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
 
   // Enlace directo por teléfono (sin OTP) para el usuario autenticado
   app.post('/whatsapp/link/direct', { schema: { summary: 'Vincular WhatsApp por teléfono (directo)' } }, async (req: any, res: any) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     if (!(await requireEntitled(userId, res))) return;
@@ -220,7 +220,7 @@ Estoy aquí para ayudarte a gestionar tus finanzas de manera inteligente. 🧠�
   // Testing Email/Expense Ingestion
   // ========================
   app.post('/simulate-expense', { schema: { summary: 'Simular detección de gasto por Email/SMS' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     
@@ -418,7 +418,7 @@ Recuerda que puedes gestionar los filtros en la sección de Integraciones.`;
   // Email Integrations Global Status
   // ========================
   app.get('/emails/status', { schema: { summary: 'Estado global de todas las integraciones de correo' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     
@@ -454,7 +454,7 @@ Recuerda que puedes gestionar los filtros en la sección de Integraciones.`;
   // Gmail Status & Management
   // ========================
   app.get('/google/status', { schema: { summary: 'Estado de conexión Gmail' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     
@@ -491,7 +491,7 @@ Recuerda que puedes gestionar los filtros en la sección de Integraciones.`;
   });
 
   app.put('/google/settings', { schema: { summary: 'Actualizar configuración de Gmail' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     
@@ -526,7 +526,7 @@ Recuerda que puedes gestionar los filtros en la sección de Integraciones.`;
   });
 
   app.post('/google/disconnect', { schema: { summary: 'Desconectar Gmail' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const body = (req.body || {}) as { email?: string };
@@ -542,7 +542,7 @@ Recuerda que puedes gestionar los filtros en la sección de Integraciones.`;
   });
 
   app.post('/google/test', { schema: { summary: 'Probar escaneo manual de Gmail' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const body = (req.body || {}) as { email?: string };
@@ -780,7 +780,7 @@ Recuerda que puedes gestionar los filtros en la sección de Integraciones.`;
   // Outlook Status & Management
   // ========================
   app.get('/outlook/status', { schema: { summary: 'Estado de conexión Outlook' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     
@@ -817,7 +817,7 @@ Recuerda que puedes gestionar los filtros en la sección de Integraciones.`;
   });
 
   app.put('/outlook/settings', { schema: { summary: 'Actualizar configuración de Outlook' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     
@@ -850,7 +850,7 @@ Recuerda que puedes gestionar los filtros en la sección de Integraciones.`;
   });
 
   app.post('/outlook/disconnect', { schema: { summary: 'Desconectar Outlook' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const body = (req.body || {}) as { email?: string };
@@ -865,7 +865,7 @@ Recuerda que puedes gestionar los filtros en la sección de Integraciones.`;
   });
 
   app.post('/outlook/test', { schema: { summary: 'Probar escaneo manual de Outlook' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const body = (req.body || {}) as { email?: string };

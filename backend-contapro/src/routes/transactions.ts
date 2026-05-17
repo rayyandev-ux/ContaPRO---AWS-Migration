@@ -5,7 +5,7 @@ import { CurrencyService } from '../services/currency.js'
 
 export const transactionsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/', { schema: { summary: 'List combined transactions' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const q = req.query as any
@@ -102,7 +102,7 @@ export const transactionsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.get('/summary', { schema: { summary: 'Get transactions summary' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { preferredCurrency: true } })

@@ -28,7 +28,7 @@ export const incomeRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.get('', { schema: { summary: 'List incomes' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     
@@ -42,7 +42,7 @@ export const incomeRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('', { schema: { summary: 'Register income' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     
@@ -126,7 +126,7 @@ export const incomeRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.delete('/:id', { schema: { summary: 'Delete income' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const id = (req.params as any).id as string
@@ -161,7 +161,7 @@ export const incomeRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.patch('/:id', { schema: { summary: 'Partial update income' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const id = (req.params as any).id as string

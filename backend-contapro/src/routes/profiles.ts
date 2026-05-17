@@ -41,7 +41,7 @@ export async function profilesRoutes(app: FastifyInstance) {
       }
     }
   }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     
     const profiles = await app.prisma.profile.findMany({
@@ -70,7 +70,7 @@ export async function profilesRoutes(app: FastifyInstance) {
       }
     }
   }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     
     const { name, color, avatar, isDefault } = req.body as any;
@@ -136,7 +136,7 @@ export async function profilesRoutes(app: FastifyInstance) {
       }
     }
   }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { id } = req.params as any;
     const { name, color, avatar, isDefault } = req.body as any;
@@ -182,7 +182,7 @@ export async function profilesRoutes(app: FastifyInstance) {
           params: { type: 'object', properties: { id: { type: 'string' } } }
       }
   }, async (req, res) => {
-      const auth = requireAuth(app, req, res);
+      const auth = await requireAuth(app, req, res);
       if (!auth) return;
       const { id } = req.params as any;
 

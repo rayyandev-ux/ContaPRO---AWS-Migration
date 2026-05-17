@@ -21,7 +21,7 @@ export const analysisRoutes: FastifyPluginAsync = async (app) => {
 
 // Actualiza el resumen del análisis asociado a un documento
   app.patch('/:documentId/summary', { schema: { summary: 'Actualizar resumen de análisis' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, stripeSubscriptionId: true, preferredCurrency: true } });
@@ -51,7 +51,7 @@ export const analysisRoutes: FastifyPluginAsync = async (app) => {
 
   // Actualiza los ítems dentro de details del análisis
   app.patch('/:documentId/items', { schema: { summary: 'Actualizar ítems de análisis' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, stripeSubscriptionId: true } });

@@ -53,7 +53,7 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/', { schema: { summary: 'Create category (scoped to user)' } }, async (req, res) => {
-    const auth = requireAuth(req, res);
+    const auth = await requireAuth(req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const parse = CreateBody.safeParse(req.body);
@@ -75,7 +75,7 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete('/:id', { schema: { summary: 'Delete user category' } }, async (req, res) => {
-    const auth = requireAuth(req, res);
+    const auth = await requireAuth(req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const id = (req.params as any).id as string;
@@ -93,7 +93,7 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.put('/:id', { schema: { summary: 'Update user category' } }, async (req, res) => {
-    const auth = requireAuth(req, res);
+    const auth = await requireAuth(req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const id = (req.params as any).id as string;

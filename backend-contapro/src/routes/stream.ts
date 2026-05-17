@@ -4,7 +4,7 @@ import { subscribeToUserEvents } from '../services/realtime.js';
 
 export const streamRoutes: FastifyPluginAsync = async (app) => {
   app.get('/', async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
 
     res.raw.setHeader('Content-Type', 'text/event-stream');

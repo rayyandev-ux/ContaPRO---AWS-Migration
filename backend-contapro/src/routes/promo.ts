@@ -5,7 +5,7 @@ import { requireAuth } from '../utils/auth.js';
 export const promoRoutes: FastifyPluginAsync = async (app) => {
   const RedeemBody = z.object({ code: z.string().min(3).max(64) });
   app.post('/redeem', { schema: { summary: 'Canjear código promocional' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const parse = RedeemBody.safeParse(req.body);

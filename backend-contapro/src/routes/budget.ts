@@ -105,7 +105,7 @@ export async function checkBudgetAlertAfterExpense(app: FastifyInstance, userId:
 export const budgetRoutes: FastifyPluginAsync = async (app) => {
 
   app.addHook('onRequest', async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return res.unauthorized('No autenticado');
     (req as any).userAuth = auth;
     

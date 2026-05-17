@@ -10,7 +10,7 @@ export const chatRoutes: FastifyPluginAsync = async (app) => {
   const groqService = new GroqService();
 
   app.post('/message', { schema: { summary: 'Chat with AI agent' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
 

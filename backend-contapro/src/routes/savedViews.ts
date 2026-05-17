@@ -4,7 +4,7 @@ import { publishEvent } from '../services/realtime.js'
 
 export const savedViewsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/', { schema: { summary: 'List saved views' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId } = auth
 
@@ -16,7 +16,7 @@ export const savedViewsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/', { schema: { summary: 'Create saved view' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId } = auth
     const body = req.body as any
@@ -39,7 +39,7 @@ export const savedViewsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.delete('/:id', { schema: { summary: 'Delete saved view' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId } = auth
     const id = (req.params as any).id as string

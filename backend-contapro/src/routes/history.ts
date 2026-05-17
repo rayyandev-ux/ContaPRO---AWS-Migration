@@ -5,7 +5,7 @@ import { requireAuth } from '../utils/auth.js';
 
 export const historyRoutes: FastifyPluginAsync = async (app) => {
   app.get('/', { schema: { summary: 'Get history' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true } });

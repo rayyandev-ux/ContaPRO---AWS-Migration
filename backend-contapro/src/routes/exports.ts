@@ -21,7 +21,7 @@ export const exportRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   }, async (req, reply) => {
-    const auth = requireAuth(fastify, req, reply);
+    const auth = await requireAuth(fastify, req, reply);
     if (!auth) return;
     const { userId } = auth;
 
@@ -86,7 +86,7 @@ export const exportRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post('/send-report', { schema: { summary: 'Send on-demand report to WhatsApp/Telegram' } }, async (req, reply) => {
-    const auth = requireAuth(fastify, req, reply);
+    const auth = await requireAuth(fastify, req, reply);
     if (!auth) return;
     const { userId } = auth;
 

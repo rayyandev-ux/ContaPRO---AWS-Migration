@@ -8,7 +8,7 @@ export const statsRoutes: FastifyPluginAsync = async (app) => {
 
   // Sumas por categoría del mes dado (source: issued|created)
   app.get('/expenses/by-category', { schema: { summary: 'Gastos por categoría (mes)' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, preferredCurrency: true } });
@@ -38,7 +38,7 @@ export const statsRoutes: FastifyPluginAsync = async (app) => {
 
   // Sumas por categoría del mes dado para INGRESOS
   app.get('/income/by-category', { schema: { summary: 'Ingresos por categoría (mes)' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, preferredCurrency: true } });
@@ -71,7 +71,7 @@ export const statsRoutes: FastifyPluginAsync = async (app) => {
 
   // Sumas por mes del año dado (source: issued|created)
   app.get('/expenses/by-month', { schema: { summary: 'Gastos por mes (año)' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, preferredCurrency: true } });
@@ -99,7 +99,7 @@ export const statsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/budget/by-month', { schema: { summary: 'Presupuesto vs gasto vs ingresos por mes (año)' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, preferredCurrency: true } });
@@ -168,7 +168,7 @@ export const statsRoutes: FastifyPluginAsync = async (app) => {
 
   // Gasto acumulado diario del mes (source: issued|created)
   app.get('/expenses/daily-trend', { schema: { summary: 'Tendencia de gasto diario (mes actual)' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, preferredCurrency: true } });

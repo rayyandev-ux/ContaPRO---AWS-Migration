@@ -3,14 +3,13 @@ import Stripe from 'stripe';
 import { config } from '../config.js';
 import { stripe, getStripePriceId, getExtraProfilePriceId, getExtraEmailPriceId } from '../services/stripe.js';
 import { requireAuth } from '../utils/auth.js';
-import { v4 as uuidv4 } from 'uuid';
 import { TikTokService } from '../services/tiktok.js';
 import { publishEvent } from '../services/realtime.js';
 import { sendPurchaseReceiptEmail } from '../services/email.js';
 
 export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   app.post('/portal', { schema: { summary: 'Create Stripe customer portal session' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
 
@@ -79,7 +78,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
       }
     } 
   }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const body: any = req.body || {};
@@ -322,7 +321,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   // para tener control total de la URL.
 
   app.get('/history', { schema: { summary: 'Get payment history' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
 
@@ -340,7 +339,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   // ========================
 
   app.get('/payment-methods', { schema: { summary: 'List saved payment methods' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
 
@@ -377,7 +376,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/payment-methods/:id/detach', { schema: { summary: 'Remove a payment method' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const { id } = req.params as { id: string };
@@ -405,7 +404,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/payment-methods/:id/default', { schema: { summary: 'Set default payment method' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const { id } = req.params as { id: string };
@@ -429,7 +428,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/subscription', { schema: { summary: 'Get current subscription details' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
 
@@ -483,7 +482,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/subscription/:id/cancel', { schema: { summary: 'Cancel any subscription at period end' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const { id } = req.params as { id: string };
@@ -516,7 +515,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/subscription/:id/resume', { schema: { summary: 'Resume any canceled subscription' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const { id } = req.params as { id: string };
@@ -570,7 +569,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/invoices', { schema: { summary: 'List Stripe invoices' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
 
@@ -604,7 +603,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/setup-intent', { schema: { summary: 'Create a setup intent for adding cards' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
 
@@ -670,7 +669,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
       }
     } 
   }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     const { type, plan } = req.body as { type: 'EXTRA_PROFILE' | 'EXTRA_EMAIL' | 'PLAN', plan?: 'MONTHLY' | 'ANNUAL' | 'LIFETIME' | 'QUARTERLY' };

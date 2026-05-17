@@ -19,7 +19,7 @@ export const flowPaymentsRoutes = async (fastify: FastifyInstance) => {
   const prisma = fastify.prisma;
 
   fastify.post('/flow/register-card', async (request: any, reply) => {
-    const auth = requireAuth(fastify, request, reply);
+    const auth = await requireAuth(fastify, request, reply);
     if (!auth) return;
     const userId = auth.userId;
 
@@ -49,7 +49,7 @@ export const flowPaymentsRoutes = async (fastify: FastifyInstance) => {
   });
 
   fastify.post('/flow/checkout', async (request: any, reply) => {
-    const auth = requireAuth(fastify, request, reply);
+    const auth = await requireAuth(fastify, request, reply);
     if (!auth) return;
     const userId = auth.userId;
     const { period } = request.body;
@@ -138,7 +138,7 @@ export const flowPaymentsRoutes = async (fastify: FastifyInstance) => {
   });
 
   fastify.post('/flow/buy-extra', async (request: any, reply) => {
-    const auth = requireAuth(fastify, request, reply);
+    const auth = await requireAuth(fastify, request, reply);
     if (!auth) return;
     const userId = auth.userId;
     const { type, plan } = request.body; // type: EXTRA_PROFILE | EXTRA_EMAIL, plan: MONTHLY | ANNUAL
@@ -215,7 +215,7 @@ export const flowPaymentsRoutes = async (fastify: FastifyInstance) => {
   });
 
   fastify.get('/flow/subscription', async (request: any, reply) => {
-    const auth = requireAuth(fastify, request, reply);
+    const auth = await requireAuth(fastify, request, reply);
     if (!auth) return;
     const userId = auth.userId;
     try {
@@ -251,7 +251,7 @@ export const flowPaymentsRoutes = async (fastify: FastifyInstance) => {
   });
 
   fastify.post('/flow/subscription/cancel', async (request: any, reply) => {
-    const auth = requireAuth(fastify, request, reply);
+    const auth = await requireAuth(fastify, request, reply);
     if (!auth) return;
     const userId = auth.userId;
     try {
@@ -268,7 +268,7 @@ export const flowPaymentsRoutes = async (fastify: FastifyInstance) => {
   });
 
   fastify.get('/flow/payment-methods', async (request: any, reply) => {
-    const auth = requireAuth(fastify, request, reply);
+    const auth = await requireAuth(fastify, request, reply);
     if (!auth) return;
     const userId = auth.userId;
     try {
@@ -291,7 +291,7 @@ export const flowPaymentsRoutes = async (fastify: FastifyInstance) => {
   });
 
   fastify.post('/flow/payment-methods/delete', async (request: any, reply) => {
-    const auth = requireAuth(fastify, request, reply);
+    const auth = await requireAuth(fastify, request, reply);
     if (!auth) return;
     const userId = auth.userId;
     try {
@@ -313,7 +313,7 @@ export const flowPaymentsRoutes = async (fastify: FastifyInstance) => {
   });
 
   fastify.get('/flow/history', async (request: any, reply) => {
-    const auth = requireAuth(fastify, request, reply);
+    const auth = await requireAuth(fastify, request, reply);
     if (!auth) return;
     const userId = auth.userId;
     try {

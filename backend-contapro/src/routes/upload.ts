@@ -10,10 +10,39 @@ import { isEntitled } from '../utils/subscription.js';
 import { requireAuth } from '../utils/auth.js';
 import { CurrencyService } from '../services/currency.js';
 
+import { generatePresignedUploadUrl, generatePresignedDownloadUrl } from '../services/aws.js';
+
 export const uploadRoutes: FastifyPluginAsync = async (app) => {
   const currencyService = new CurrencyService(app as any);
+
+  // Nuevo endpoint para generar Presigned URLs de S3
+  app.post('/presigned', { schema: { summary: 'Generate S3 Presigned URL for upload' } }, async (req, res) => {
+    const auth = await requireAuth(app, req, res);
+    if (!auth) return;
+    
+    const body: any = req.body || {};
+    const filename = body.filename;
+    const contentType = body.contentType;
+    
+    if (!filename || !contentType) {
+      return res.badRequest('Falta filename o contentType');
+    }
+    
+    const bucket = process.env.S3_BUCKET_NAME || 'contapro-uploads';
+    // Generar un key seguro
+    const key = `uploads/${auth.userId}/${Date.now()}_${filename.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+    
+    try {
+      const url = await generatePresignedUploadUrl(bucket, key, contentType, 900); // 15 minutos
+      return res.send({ ok: true, url, key });
+    } catch (e) {
+      app.log.error(e, 'Error generating presigned url');
+      return res.internalServerError('Error generando presigned url');
+    }
+  });
+
   app.post('/', { schema: { summary: 'Upload document' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
 

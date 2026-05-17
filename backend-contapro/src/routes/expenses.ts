@@ -45,7 +45,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /pending - Listar notificaciones/gastos pendientes de aprobación
   app.get('/pending', { schema: { summary: 'Listar gastos pendientes de aprobación' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
     
@@ -59,7 +59,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /pending/:id/approve - Aprobar gasto pendiente
   app.post('/pending/:id/approve', { schema: { summary: 'Aprobar gasto pendiente' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
 
@@ -110,7 +110,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /pending/:id/reject - Rechazar gasto pendiente
   app.post('/pending/:id/reject', { schema: { summary: 'Rechazar gasto pendiente' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId } = auth;
 
@@ -130,7 +130,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('', { schema: { summary: 'List expenses' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
 
@@ -173,7 +173,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /:id - Get expense
   app.get('/:id', { schema: { summary: 'Get expense' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const userGate = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, stripeSubscriptionId: true } });
@@ -186,7 +186,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /:id
   app.delete('/:id', { schema: { summary: 'Delete expense' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const userGate = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, stripeSubscriptionId: true } });
@@ -215,7 +215,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /bulk - Delete multiple
   app.post('/bulk-delete', { schema: { summary: 'Delete multiple expenses' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const userGate = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, stripeSubscriptionId: true } });
@@ -243,7 +243,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
   app.put('/:id', {
     schema: { summary: 'Update expense', params: { type: 'object', properties: { id: { type: 'string' } } } }
   }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const userGate = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true, stripeSubscriptionId: true } });
@@ -307,7 +307,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
   app.patch('/:id', {
     schema: { summary: 'Partial update expense', params: { type: 'object', properties: { id: { type: 'string' } } } }
   }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const id = (req.params as any).id as string;
@@ -354,7 +354,7 @@ export const expensesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('', { schema: { summary: 'Create manual expense' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const ct = String((req.headers as any)['content-type'] || '').toLowerCase();

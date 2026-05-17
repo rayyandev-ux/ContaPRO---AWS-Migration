@@ -554,7 +554,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   app.get('/reset-data/counts', {
     schema: { summary: 'Get User Data Counts' }
   }, async (req, res) => {
-     const auth = requireAuth(app, req, res);
+     const auth = await requireAuth(app, req, res);
      if (!auth) return;
      const { userId } = auth;
 
@@ -598,7 +598,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         }
     }
   }, async (req, res) => {
-     const auth = requireAuth(app, req, res);
+     const auth = await requireAuth(app, req, res);
      if (!auth) return;
      const { userId } = auth;
      const body = ResetDataBody.parse(req.body);

@@ -4,10 +4,11 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { isEntitled } from '../utils/subscription.js';
 import { requireAuth } from '../utils/auth.js';
+import { generatePresignedDownloadUrl } from '../services/aws.js';
 
 export const documentsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/:id/download', { schema: { summary: 'Descargar documento' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true } });
@@ -19,6 +20,15 @@ export const documentsRoutes: FastifyPluginAsync = async (app) => {
     if (!doc.storagePath) return res.badRequest('Documento sin archivo');
 
     try {
+      // Si el backend tiene S3 configurado, y el path parece ser de S3 o al menos generamos la url
+      if (process.env.S3_BUCKET_NAME) {
+        // En caso de que el storagePath incluya una ruta local por compatibilidad legacy, limpiarla
+        const key = doc.storagePath.includes('/') ? doc.storagePath.split('uploads/').pop() || doc.storagePath : doc.storagePath;
+        const bucket = process.env.S3_BUCKET_NAME;
+        const url = await generatePresignedDownloadUrl(bucket, `uploads/${key}`, 900);
+        return res.redirect(url);
+      }
+
       let file: Buffer;
       let usedPath = doc.storagePath;
 
@@ -72,7 +82,7 @@ export const documentsRoutes: FastifyPluginAsync = async (app) => {
 
   // Vista previa inline del documento (útil para imágenes)
   app.get('/:id/preview', { schema: { summary: 'Previsualizar documento' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const user = await app.prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planExpires: true, trialEnds: true } });
@@ -84,6 +94,14 @@ export const documentsRoutes: FastifyPluginAsync = async (app) => {
     if (!doc.storagePath) return res.badRequest('Documento sin archivo');
 
     try {
+      // Si el backend tiene S3 configurado, redirigir a S3 presigned URL
+      if (process.env.S3_BUCKET_NAME) {
+        const key = doc.storagePath.includes('/') ? doc.storagePath.split('uploads/').pop() || doc.storagePath : doc.storagePath;
+        const bucket = process.env.S3_BUCKET_NAME;
+        const url = await generatePresignedDownloadUrl(bucket, `uploads/${key}`, 900);
+        return res.redirect(url);
+      }
+
       let file: Buffer;
       let usedPath = doc.storagePath;
 

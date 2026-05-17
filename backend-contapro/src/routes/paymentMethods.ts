@@ -41,7 +41,7 @@ export const paymentMethodsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.get('/', { schema: { summary: 'List payment methods' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     let items = await app.prisma.paymentMethod.findMany({ where: { userId, profileId, active: true }, orderBy: { createdAt: 'desc' } })
@@ -68,7 +68,7 @@ export const paymentMethodsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/', { schema: { summary: 'Create payment method' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const parse = CreateBody.safeParse(req.body)
@@ -144,7 +144,7 @@ export const paymentMethodsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.patch('/:id', { schema: { summary: 'Update payment method' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const id = (req.params as any).id as string
@@ -191,7 +191,7 @@ export const paymentMethodsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.delete('/:id', { schema: { summary: 'Delete payment method' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const id = (req.params as any).id as string
@@ -233,7 +233,7 @@ export const paymentMethodsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.get('/:id/transactions', { schema: { summary: 'Get transactions for a payment method' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const id = (req.params as any).id as string
@@ -291,7 +291,7 @@ export const paymentMethodsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/:id/default', { schema: { summary: 'Set default payment method' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const id = (req.params as any).id as string
@@ -309,7 +309,7 @@ export const paymentMethodsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/:id/transfer', { schema: { summary: 'Transfer between accounts' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const sourceId = (req.params as any).id as string
@@ -386,7 +386,7 @@ export const paymentMethodsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/:id/rebalance', { schema: { summary: 'Rebalance account' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res)
+    const auth = await requireAuth(app, req, res)
     if (!auth) return
     const { userId, profileId } = auth
     const id = (req.params as any).id as string

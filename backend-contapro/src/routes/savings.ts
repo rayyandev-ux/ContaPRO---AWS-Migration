@@ -24,7 +24,7 @@ export const savingsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/goals', { schema: { summary: 'List savings goals' } }, async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
 
@@ -44,7 +44,7 @@ export const savingsRoutes: FastifyPluginAsync = async (app) => {
 
   // CREATE GOAL
   app.post('/goals', async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     
@@ -72,7 +72,7 @@ export const savingsRoutes: FastifyPluginAsync = async (app) => {
 
   // GET GOAL DETAILS
   app.get('/goals/:id', async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const { id } = req.params as { id: string };
@@ -92,7 +92,7 @@ export const savingsRoutes: FastifyPluginAsync = async (app) => {
 
   // ADD TRANSACTION (DEPOSIT/WITHDRAW)
   app.post('/goals/:id/transactions', async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const { id } = req.params as { id: string };
@@ -152,7 +152,7 @@ export const savingsRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE GOAL
   app.delete('/goals/:id', async (req, res) => {
-    const auth = requireAuth(app, req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const { id } = req.params as { id: string };

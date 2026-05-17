@@ -11,6 +11,7 @@ import oauth2 from '@fastify/oauth2';
 import crypto from 'node:crypto';
 import jwt from '@fastify/jwt';
 import { config } from './config.js';
+import { fetchAwsSecrets } from './services/aws.js';
 import { prisma } from './plugins/prisma.js';
 import { authRoutes } from './routes/auth.js';
 import { historyRoutes } from './routes/history.js';
@@ -49,6 +50,16 @@ import { setupPushNotificationWorker } from './workers/pushNotification.js';
 import { DailyReportJob } from './jobs/DailyReportJob.js';
 
 async function buildServer() {
+  // Load AWS Secrets if configured before booting everything
+  if (config.awsSecretsManagerSecretId) {
+    const secrets = await fetchAwsSecrets();
+    for (const [key, value] of Object.entries(secrets)) {
+      if (!process.env[key]) {
+        process.env[key] = value as string;
+      }
+    }
+  }
+
   // Elevar bodyLimit para evitar 413 en cargas grandes (se complementa con @fastify/multipart)
   const fastify = Fastify({ logger: true, bodyLimit: Math.max(5 * 1024 * 1024, config.uploadMaxBytes + (1 * 1024 * 1024)) });
 
