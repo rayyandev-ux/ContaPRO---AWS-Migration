@@ -23,6 +23,9 @@ module "backend" {
 
   uploads_bucket_name = module.storage.uploads_bucket_id
   uploads_bucket_arn  = module.storage.uploads_bucket_arn
+
+  db_credentials_secret_arn = module.database.db_credentials_secret_arn
+  redis_url                 = module.cache.redis_url
 }
 
 module "frontend" {
@@ -53,4 +56,22 @@ module "security" {
   environment    = var.environment
   vpc_id         = module.network.vpc_id
   container_port = 8080 # Tu backend Node.js corre en el 8080
+}
+
+module "database" {
+  source = "./modules/database"
+
+  project_name       = var.project_name
+  environment        = var.environment
+  private_subnet_ids = module.network.private_subnet_ids
+  aurora_sg_id       = module.security.aurora_sg_id
+}
+
+module "cache" {
+  source = "./modules/cache"
+
+  project_name       = var.project_name
+  environment        = var.environment
+  private_subnet_ids = module.network.private_subnet_ids
+  redis_sg_id        = module.security.redis_sg_id
 }

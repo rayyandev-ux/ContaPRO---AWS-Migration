@@ -119,15 +119,20 @@ resource "aws_iam_role_policy_attachment" "ecs_s3_uploads_policy_attachment" {
 # Allow ECS Task Execution Role to read Secrets Manager
 resource "aws_iam_policy" "ecs_secrets_policy" {
   name        = "${var.project_name}-ecs-secrets-policy-${var.environment}"
-  description = "Allow ECS to read Secrets Manager"
+  description = "Permite a ECS leer secretos de AWS Secrets Manager"
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["secretsmanager:GetSecretValue"]
-        Resource = "*" # En prod se debe restringir al ARN específico del secreto
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          var.db_credentials_secret_arn,
+          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:*" # En caso de que tengas el secreto global de config
+        ]
       }
     ]
   })
@@ -187,15 +192,15 @@ resource "aws_ecs_task_definition" "backend" {
   family                   = "${var.project_name}-backend-${var.environment}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "256" # 0.25 vCPU
-  memory                   = "512" # 512 MB
+  cpu                      = 512
+  memory                   = 1024
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
-      name      = "${var.project_name}-backend"
-      image     = "${aws_ecr_repository.backend.repository_url}:latest"
+      name      = "${var.project_name}-backend-container-${var.environment}"
+      image     = aws_ecr_repository.backend.repository_url
       essential = true
       portMappings = [
         {
@@ -208,7 +213,14 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "NODE_ENV", value = "production" },
         { name = "PORT", value = tostring(var.container_port) },
         { name = "USE_AWS_SES", value = "true" },
-        { name = "S3_BUCKET_NAME", value = var.uploads_bucket_name }
+        { name = "S3_BUCKET_NAME", value = var.uploads_bucket_name },
+        { name = "REDIS_URL", value = var.redis_url }
+      ]
+      secrets = [
+        {
+          name      = "DATABASE_URL"
+          valueFrom = "${var.db_credentials_secret_arn}:DATABASE_URL::"
+        }
       ]
       logConfiguration = {
         logDriver = "awslogs"

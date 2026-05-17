@@ -48,3 +48,13 @@ variable "uploads_bucket_arn" {
   description = "ARN of the S3 bucket used for file uploads"
   type        = string
 }
+
+variable "db_credentials_secret_arn" {
+  description = "ARN del secreto en AWS Secrets Manager que contiene las credenciales de la BD"
+  type        = string
+}
+
+variable "redis_url" {
+  description = "URL de conexión para ElastiCache Redis"
+  type        = string
+}
