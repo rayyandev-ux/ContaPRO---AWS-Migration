@@ -86,6 +86,36 @@ resource "aws_iam_role_policy_attachment" "ecs_ses_policy_attachment" {
   policy_arn = aws_iam_policy.ecs_ses_policy.arn
 }
 
+# Allow ECS Task to read/write to the Uploads S3 Bucket
+resource "aws_iam_policy" "ecs_s3_uploads_policy" {
+  name        = "${var.project_name}-ecs-s3-uploads-policy-${var.environment}"
+  description = "Allow ECS tasks to read/write to the uploads S3 bucket"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          var.uploads_bucket_arn,
+          "${var.uploads_bucket_arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_s3_uploads_policy_attachment" {
+  role       = aws_iam_role.ecs_task_role.name
+  policy_arn = aws_iam_policy.ecs_s3_uploads_policy.arn
+}
+
 # Allow ECS Task Execution Role to read Secrets Manager
 resource "aws_iam_policy" "ecs_secrets_policy" {
   name        = "${var.project_name}-ecs-secrets-policy-${var.environment}"
@@ -177,7 +207,8 @@ resource "aws_ecs_task_definition" "backend" {
       environment = [
         { name = "NODE_ENV", value = "production" },
         { name = "PORT", value = tostring(var.container_port) },
-        { name = "USE_AWS_SES", value = "true" }
+        { name = "USE_AWS_SES", value = "true" },
+        { name = "S3_BUCKET_NAME", value = var.uploads_bucket_name }
       ]
       logConfiguration = {
         logDriver = "awslogs"

@@ -38,3 +38,13 @@ variable "container_port" {
   type        = number
   default     = 8080
 }
+
+variable "uploads_bucket_name" {
+  description = "Name of the S3 bucket used for file uploads"
+  type        = string
+}
+
+variable "uploads_bucket_arn" {
+  description = "ARN of the S3 bucket used for file uploads"
+  type        = string
+}
