@@ -84,9 +84,11 @@ pipeline {
                     }
                     steps {
                         sh '''
-                            pip3 install --user checkov 2>/dev/null || true
-                            export PATH="$HOME/.local/bin:$PATH"
-                            checkov \
+                            mkdir -p infrastructure/results.xml
+                            docker run --rm \
+                                -v "$WORKSPACE:/tf" \
+                                -w /tf \
+                                bridgecrew/checkov \
                                 -d infrastructure/ \
                                 --framework terraform \
                                 --output cli \
