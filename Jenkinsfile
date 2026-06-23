@@ -9,14 +9,13 @@
 //   5. Build & Deploy Frontend: pnpm build → S3 sync → CloudFront invalidation
 //
 // Requisitos en Jenkins:
-//   - Plugins: Pipeline, Docker Pipeline, SonarQube Scanner, Credentials
+//   - Plugins: Pipeline, Docker Pipeline, SonarQube Scanner, AWS Credentials
 //   - Credenciales (Manage Jenkins > Credentials):
 //       * aws-credentials        (AWS Access Key + Secret Key)
 //       * sonarqube-token        (Secret text: token de SonarQube)
 //   - Configuración global:
 //       * SonarQube server "SonarQube" (Manage Jenkins > System > SonarQube servers)
-//       * NodeJS tool "NodeJS-22" (Manage Jenkins > Tools > NodeJS)
-//   - Herramientas en el agente: docker, aws-cli, pnpm, terraform, checkov (pip)
+//       * SonarQube Scanner "SonarScanner" (Manage Jenkins > Tools)
 // =============================================================================
 
 pipeline {
@@ -30,6 +29,7 @@ pipeline {
         ECS_CLUSTER      = "${PROJECT_NAME}-cluster-${ENVIRONMENT}"
         ECS_SERVICE      = "${PROJECT_NAME}-backend-service-${ENVIRONMENT}"
         FRONTEND_BUCKET  = "${PROJECT_NAME}-frontend-${ENVIRONMENT}"
+        SCANNER_HOME     = tool 'SonarScanner'
     }
 
     options {
@@ -60,8 +60,8 @@ pipeline {
                         dir('backend-contapro') {
                             withSonarQubeEnv('SonarQube') {
                                 sh '''
-                                    sonar-scanner \
-                                        -Dsonar.projectKey=${PROJECT_NAME}-backend \
+                                    ${SCANNER_HOME}/bin/sonar-scanner \
+                                        -Dsonar.projectKey=contapro-backend \
                                         -Dsonar.projectName="ContaPRO Backend" \
                                         -Dsonar.sources=src \
                                         -Dsonar.language=ts \
@@ -84,6 +84,8 @@ pipeline {
                     }
                     steps {
                         sh '''
+                            pip3 install --user checkov 2>/dev/null || true
+                            export PATH="$HOME/.local/bin:$PATH"
                             checkov \
                                 -d infrastructure/ \
                                 --framework terraform \
@@ -282,7 +284,7 @@ pipeline {
             echo "Pipeline FALLÓ en rama ${env.BRANCH_NAME}"
         }
         cleanup {
-            cleanWs()
+            deleteDir()
         }
     }
 }
