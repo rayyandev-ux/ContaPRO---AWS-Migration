@@ -85,10 +85,8 @@ pipeline {
                     steps {
                         sh '''
                             mkdir -p infrastructure/results.xml
-                            docker run --rm \
-                                -v "$WORKSPACE:/tf" \
-                                -w /tf \
-                                bridgecrew/checkov \
+                            pip3 install --break-system-packages checkov 2>&1 | tail -1
+                            checkov \
                                 -d infrastructure/ \
                                 --framework terraform \
                                 --output cli \
