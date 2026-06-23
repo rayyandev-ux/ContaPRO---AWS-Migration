@@ -1,20 +1,23 @@
 variable "project_name" {
-  description = "Name of the project"
-  type        = string
+  type = string
 }
 
 variable "environment" {
-  description = "Environment (dev, prod, etc.)"
-  type        = string
+  type = string
 }
 
 variable "vpc_id" {
-  description = "ID of the VPC where security groups will be created"
+  description = "ID de la VPC"
+  type        = string
+}
+
+variable "vpc_cidr" {
+  description = "CIDR de la VPC (para reglas de egress del VPC Link)"
   type        = string
 }
 
 variable "container_port" {
-  description = "Port exposed by the ECS container"
+  description = "Puerto del contenedor ECS"
   type        = number
   default     = 8080
 }
