@@ -14,12 +14,21 @@ resource "random_password" "db_password" {
   special = false
 }
 
+# Versión más reciente disponible de Aurora PostgreSQL en la región.
+# Se consulta dinámicamente para evitar fijar una versión que AWS retire
+# (por ejemplo, la 15.3 ya no se puede usar para clusters nuevos).
+data "aws_rds_engine_version" "postgresql" {
+  engine = "aurora-postgresql"
+  latest = true
+}
+
 # Cluster de Aurora Serverless v2 (PostgreSQL)
+# engine_mode "provisioned" + serverlessv2_scaling_configuration = Serverless v2
 resource "aws_rds_cluster" "aurora" {
   cluster_identifier     = "${var.project_name}-aurora-cluster-${var.environment}"
   engine                 = "aurora-postgresql"
   engine_mode            = "provisioned"
-  engine_version         = "15.3"
+  engine_version         = data.aws_rds_engine_version.postgresql.version
   database_name          = "contapro"
   master_username        = "postgres"
   master_password        = random_password.db_password.result

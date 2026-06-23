@@ -1,27 +1,38 @@
 # syntax=docker/dockerfile:1
-# Multi-stage Dockerfile for ContaPRO Backend
-# Optimized for fast builds via aggressive layer caching
+# =============================================================================
+# Dockerfile multi-stage para el Backend de ContaPRO (Fastify + Prisma + Python)
+# - Usa pnpm (el proyecto tiene pnpm-lock.yaml, NO package-lock.json)
+# - Optimizado para builds rápidos mediante caché agresiva de capas
+# - La imagen final corre como usuario sin privilegios (node)
+# =============================================================================
 
-# --- Stage 1: Node dependencies (cached unless package-lock changes) ---
+# --- Stage 1: Dependencias de Node (se cachea salvo que cambie pnpm-lock.yaml) ---
 FROM node:22-bullseye-slim AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+# corepack activa pnpm sin instalarlo globalmente (viene incluido en Node 22)
+RUN corepack enable && corepack prepare pnpm@9 --activate
+# node-linker=hoisted: hace que pnpm genere un node_modules "plano" (estilo npm).
+# Es necesario para poder copiar subcarpetas concretas (.prisma, @prisma/client)
+# en el stage final sin romper los symlinks internos de pnpm.
+RUN echo "node-linker=hoisted" > .npmrc
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
-# --- Stage 2: Prisma generate (cached unless prisma schema changes) ---
+# --- Stage 2: Prisma generate (se cachea salvo que cambie el schema) ---
 FROM deps AS prisma
 WORKDIR /app
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN pnpm exec prisma generate
 
-# --- Stage 3: TypeScript build (cached unless src changes) ---
+# --- Stage 3: Compilación de TypeScript (se cachea salvo que cambie src/) ---
 FROM prisma AS builder
 WORKDIR /app
 COPY tsconfig.json ./
 COPY src ./src
-RUN npm run build
+RUN pnpm run build
 
-# --- Stage 4: Python venv (cached unless requirements.txt changes) ---
+# --- Stage 4: Entorno virtual de Python (se cachea salvo que cambie requirements.txt) ---
 FROM python:3.11-slim-bullseye AS python-builder
 WORKDIR /app/python
 COPY python/requirements.txt ./requirements.txt
@@ -31,17 +42,20 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     /app/python/.venv/bin/pip install -r requirements.txt
 COPY python/ ./
 
-# --- Stage 5: Production dependencies (cached unless package-lock changes) ---
+# --- Stage 5: Dependencias de producción (sin devDependencies) ---
 FROM node:22-bullseye-slim AS prod-deps
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
+RUN corepack enable && corepack prepare pnpm@9 --activate
+RUN echo "node-linker=hoisted" > .npmrc
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --prod
 
-# --- Stage 6: Runtime ---
+# --- Stage 6: Imagen final (runtime) ---
 FROM node:22-bullseye-slim AS runtime
 WORKDIR /app
 
-# OS deps needed by sharp, healthcheck AND Puppeteer (single layer, sorted)
+# Dependencias del SO para sharp, healthcheck (curl) y Puppeteer/Chromium
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates \
@@ -85,31 +99,32 @@ RUN apt-get update && \
       xdg-utils && \
     rm -rf /var/lib/apt/lists/*
 
-# Skip Puppeteer's Chrome download and use the system Chromium
+# Evita que Puppeteer descargue Chrome y usa el Chromium del sistema
 ENV PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Copy production node_modules (pre-built, no npm install at this stage)
+# node_modules de producción (pre-construido, sin instalar nada en este stage)
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY package.json ./
 
-# Copy Prisma schema and generated client from builder
+# Schema de Prisma y cliente generado desde el stage builder
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Copy built app and templates
+# Aplicación compilada y plantillas de email
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/templates ./src/templates
 
-# Copy pre-built Python venv and scripts
+# Entorno virtual de Python y scripts (OCR / LLM)
 COPY --from=python-builder /app/python ./python
 
-# Uploads directory writable
+# Directorio de uploads con permisos de escritura para el usuario node
 RUN mkdir -p /app/uploads && \
     chown -R node:node /app/uploads && \
     chown -R node:node /app/python
 
+# Variables por defecto (ECS las puede sobreescribir en la task definition)
 ENV NODE_ENV=production \
     PORT=8080 \
     LLM_BACKEND=python \
@@ -118,7 +133,7 @@ ENV NODE_ENV=production \
 
 EXPOSE 8080
 
-# Simple healthcheck against /health
+# Healthcheck local del contenedor (el ALB usa /api/health por su cuenta)
 HEALTHCHECK --interval=20s --timeout=3s --retries=5 CMD curl -fsS http://localhost:${PORT}/health || exit 1
 
 USER node
