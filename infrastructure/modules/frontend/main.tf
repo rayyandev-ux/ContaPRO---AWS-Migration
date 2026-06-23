@@ -1,4 +1,12 @@
-# S3 Bucket for hosting the static frontend
+# =============================================================================
+# Módulo FRONTEND: S3 + CloudFront + WAF
+#
+# S3: almacena los archivos estáticos generados por `next build` (output: export)
+# CloudFront: CDN global con HTTPS, WAF y rewrite de URLs para Next.js
+# WAF: protege contra rate limiting y ataques comunes (OWASP)
+# =============================================================================
+
+# --- S3 Bucket para el frontend estático ---
 resource "aws_s3_bucket" "frontend" {
   bucket        = "${var.project_name}-frontend-${var.environment}"
   force_destroy = true
@@ -9,16 +17,14 @@ resource "aws_s3_bucket" "frontend" {
   }
 }
 
-# Ownership controls
 resource "aws_s3_bucket_ownership_controls" "frontend" {
   bucket = aws_s3_bucket.frontend.id
-
   rule {
     object_ownership = "BucketOwnerPreferred"
   }
 }
 
-# Block public access directly to S3 (Traffic must come through CloudFront)
+# Bloquear acceso público directo a S3 (todo el tráfico debe pasar por CloudFront)
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
@@ -28,7 +34,7 @@ resource "aws_s3_bucket_public_access_block" "frontend" {
   restrict_public_buckets = true
 }
 
-# Origin Access Control for CloudFront
+# OAC: permite a CloudFront leer objetos del bucket sin hacerlos públicos
 resource "aws_cloudfront_origin_access_control" "frontend" {
   name                              = "${var.project_name}-frontend-oac-${var.environment}"
   description                       = "OAC for Frontend S3 Bucket"
@@ -37,7 +43,44 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
-# CloudFront Distribution
+# --- CloudFront Function: rewrite de URLs para Next.js static export ---
+# Next.js exporta /es.html, /es/dashboard.html, etc.
+# El navegador pide /es o /es/dashboard → esta función añade .html
+resource "aws_cloudfront_function" "rewrite_urls" {
+  name    = "${var.project_name}-rewrite-urls-${var.environment}"
+  runtime = "cloudfront-js-2.0"
+  comment = "Reescribe rutas de Next.js static export a .html en S3"
+  publish = true
+
+  code = <<-EOT
+    function handler(event) {
+      var request = event.request;
+      var uri = request.uri;
+
+      if (uri === '/' || uri === '') {
+        return {
+          statusCode: 302,
+          statusDescription: 'Found',
+          headers: { location: { value: '/es' } }
+        };
+      }
+
+      if (uri.endsWith('/')) {
+        uri = uri.slice(0, -1);
+      }
+
+      var lastSegment = uri.split('/').pop();
+      if (!lastSegment.includes('.')) {
+        uri = uri + '.html';
+      }
+
+      request.uri = uri;
+      return request;
+    }
+  EOT
+}
+
+# --- CloudFront Distribution ---
 resource "aws_cloudfront_distribution" "frontend" {
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -45,41 +88,44 @@ resource "aws_cloudfront_distribution" "frontend" {
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
   }
 
-  enabled             = true
-  is_ipv6_enabled     = true
-  default_root_object = "index.html"
+  enabled         = true
+  is_ipv6_enabled = true
+
+  # Dominio personalizado (solo cuando enable_custom_domain = true)
+  aliases = var.enable_custom_domain ? ["app.${var.domain_name}"] : []
+
+  # WAF Web ACL (protección contra rate limiting y ataques)
+  web_acl_id = var.waf_web_acl_arn
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
     target_origin_id = "S3-${aws_s3_bucket.frontend.id}"
 
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
+    # Política de caché administrada: "CachingOptimized"
+    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
 
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.rewrite_urls.arn
+    }
   }
 
-  # Handling Next.js routing (redirect 403/404 to index.html for SPA behavior)
+  # Páginas de error: servir 404.html generado por Next.js
   custom_error_response {
     error_caching_min_ttl = 300
     error_code            = 403
-    response_code         = 200
-    response_page_path    = "/index.html"
+    response_code         = 404
+    response_page_path    = "/404.html"
   }
 
   custom_error_response {
     error_caching_min_ttl = 300
     error_code            = 404
-    response_code         = 200
-    response_page_path    = "/index.html"
+    response_code         = 404
+    response_page_path    = "/404.html"
   }
 
   restrictions {
@@ -88,9 +134,12 @@ resource "aws_cloudfront_distribution" "frontend" {
     }
   }
 
+  # Certificado SSL: ACM si hay dominio personalizado, default de CloudFront si no
   viewer_certificate {
-    cloudfront_default_certificate = true
-    # En el futuro, si tienes un dominio en Route53, aquí iría el acm_certificate_arn
+    cloudfront_default_certificate = var.enable_custom_domain ? false : true
+    acm_certificate_arn            = var.enable_custom_domain ? var.acm_certificate_arn : null
+    ssl_support_method             = var.enable_custom_domain ? "sni-only" : null
+    minimum_protocol_version       = var.enable_custom_domain ? "TLSv1.2_2021" : "TLSv1"
   }
 
   tags = {
@@ -99,27 +148,37 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 }
 
-# S3 Bucket Policy to allow CloudFront to read objects
+# Bucket Policy: solo CloudFront puede leer objetos
 resource "aws_s3_bucket_policy" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowCloudFrontServicePrincipal"
-        Effect = "Allow"
-        Principal = {
-          Service = "cloudfront.amazonaws.com"
-        }
-        Action   = "s3:GetObject"
-        Resource = "${aws_s3_bucket.frontend.arn}/*"
-        Condition = {
-          StringEquals = {
-            "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
-          }
+    Statement = [{
+      Sid       = "AllowCloudFrontServicePrincipal"
+      Effect    = "Allow"
+      Principal = { Service = "cloudfront.amazonaws.com" }
+      Action    = "s3:GetObject"
+      Resource  = "${aws_s3_bucket.frontend.arn}/*"
+      Condition = {
+        StringEquals = {
+          "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
         }
       }
-    ]
+    }]
   })
+}
+
+# --- Route 53: registro DNS para app.contapro.lat → CloudFront ---
+resource "aws_route53_record" "frontend" {
+  count   = var.enable_custom_domain ? 1 : 0
+  zone_id = var.hosted_zone_id
+  name    = "app.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
 }
