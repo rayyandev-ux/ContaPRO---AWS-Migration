@@ -44,5 +44,13 @@ terraform.rc
 # planout
 
 node_modules/
+
+# OS
+.DS_Store
+
+# Artefactos de escaneo (Checkov, etc.)
+infrastructure/results.xml/
+infrastructure/iac/results*
+
 # Guias de Aprendizaje
 Terraform_Learning_Guide.md
