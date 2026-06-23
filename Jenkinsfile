@@ -84,8 +84,9 @@ pipeline {
                     }
                     steps {
                         sh '''
+                            export PATH="$HOME/.local/bin:$PATH"
                             mkdir -p infrastructure/results.xml
-                            pip3 install --break-system-packages checkov 2>&1 | tail -1
+                            pip3 install --break-system-packages -q checkov
                             checkov \
                                 -d infrastructure/ \
                                 --framework terraform \
