@@ -1,32 +1,35 @@
 variable "project_name" {
-  description = "Name of the project"
-  type        = string
+  type = string
 }
 
 variable "environment" {
-  description = "Environment (dev, prod, etc.)"
+  type = string
+}
+
+variable "region" {
+  description = "Región de AWS (para los VPC endpoints)"
   type        = string
 }
 
 variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
+  description = "CIDR block de la VPC"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "172.16.0.0/16"
 }
 
 variable "public_subnets_cidr" {
-  description = "CIDR blocks for public subnets"
+  description = "CIDRs de las subnets públicas"
   type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24"]
+  default     = ["172.16.1.0/24", "172.16.2.0/24"]
 }
 
 variable "private_subnets_cidr" {
-  description = "CIDR blocks for private subnets"
+  description = "CIDRs de las subnets privadas"
   type        = list(string)
-  default     = ["10.0.3.0/24", "10.0.4.0/24"]
+  default     = ["172.16.3.0/24", "172.16.4.0/24"]
 }
 
 variable "availability_zones" {
-  description = "List of availability zones"
+  description = "Zonas de disponibilidad"
   type        = list(string)
 }
