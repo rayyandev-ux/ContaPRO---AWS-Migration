@@ -65,7 +65,11 @@ async function buildServer() {
 
   await fastify.register(sensible);
   await fastify.register(helmet);
-  await fastify.register(cors, { origin: true, credentials: true, methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'] });
+  // CORS: en producción solo se acepta el dominio del frontend (CloudFront),
+  // definido en FRONTEND_URL por la task definition de ECS (Terraform).
+  // En desarrollo se permite cualquier localhost para no estorbar.
+  const allowedOrigins: (string | RegExp)[] = [config.frontendUrl, /^https?:\/\/localhost(:\d+)?$/];
+  await fastify.register(cors, { origin: allowedOrigins, credentials: true, methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'] });
   await fastify.register(rawBody, {
     field: 'rawBody', // req.rawBody
     global: false,    // Solo para rutas que lo pidan
@@ -247,7 +251,12 @@ async function buildServer() {
     fastify.log.info('WhatsApp/Wazend no configurado (faltan WAZEND_API_BASE, WAZEND_API_TOKEN, WHATSAPP_NUMBER).');
   }
 
+  // Healthchecks: deben responder 200 rápido y SIN autenticación.
+  // - /health     -> lo usa el HEALTHCHECK del Dockerfile
+  // - /api/health -> lo usa el Target Group del ALB (Terraform: modules/backend)
+  //   Si esta ruta falla, ECS marca el contenedor como unhealthy y lo reinicia.
   fastify.get('/health', async () => ({ ok: true }));
+  fastify.get('/api/health', async () => ({ ok: true }));
 
   // Asegurar presupuesto del mes actual para todos los usuarios al iniciar (sin notificar)
   try {
