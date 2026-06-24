@@ -14,8 +14,10 @@ data "aws_caller_identity" "current" {}
 # --- ECR: registro de imágenes Docker ---
 resource "aws_ecr_repository" "backend" {
   #checkov:skip=CKV_AWS_136: Using default AES-256 encryption, KMS CMK adds cost without benefit for dev
+  #checkov:skip=CKV_AWS_51: MUTABLE tags required for :latest workflow in CI/CD pipeline
   name                 = "${var.project_name}-backend-${var.environment}"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
