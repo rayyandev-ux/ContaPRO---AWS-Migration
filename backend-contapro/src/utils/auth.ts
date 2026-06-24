@@ -36,25 +36,25 @@ export async function requireAuth(app: FastifyInstance, req: FastifyRequest | an
     if (cognitoVerifier) {
       try {
         const payload = await cognitoVerifier.verify(token);
-        // En Cognito, userId suele ser `sub` o un atributo personalizado
-        const userId = payload.sub;
-        // Asumimos que profileId viene como atributo custom (ej. custom:profileId) o buscamos el default
-        // Si no viene, tendríamos que buscarlo en DB. Como aquí solo devolvemos el string, 
-        // pasamos el custom claim o un fallback.
-        const profileId = (payload as any)['custom:profileId'];
-        
-        if (!profileId) {
-          // Si no hay profileId en el token de Cognito, buscaremos el default en la DB usando Prisma
-          const profile = await app.prisma.profile.findFirst({
-            where: { userId, isDefault: true }
-          });
-          if (!profile) {
-            res.unauthorized('Perfil no encontrado');
-            return null;
-          }
-          return { userId, profileId: profile.id };
+        const email = (payload as any).email;
+        if (!email) {
+          app.log.warn('Cognito ID token missing email claim');
+          res.unauthorized('Token inválido');
+          return null;
         }
-        return { userId, profileId };
+        const user = await app.prisma.user.findUnique({ where: { email } });
+        if (!user) {
+          res.unauthorized('Usuario no encontrado');
+          return null;
+        }
+        const profile = await app.prisma.profile.findFirst({
+          where: { userId: user.id, isDefault: true }
+        });
+        if (!profile) {
+          res.unauthorized('Perfil no encontrado');
+          return null;
+        }
+        return { userId: user.id, profileId: profile.id };
       } catch (err) {
         // Si falla Cognito, quizás es un token legacy (fallback local)
         app.log.warn('Cognito JWT verification failed, falling back to local JWT: ' + (err as Error).message);

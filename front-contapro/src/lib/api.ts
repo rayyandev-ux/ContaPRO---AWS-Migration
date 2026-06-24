@@ -48,8 +48,9 @@ export async function apiJson<T = any>(path: string, init: RequestInit = {}): Pr
     let authHeader = {};
     try {
       const session = await fetchAuthSession();
-      if (session.tokens?.accessToken) {
-        authHeader = { "Authorization": `Bearer ${session.tokens.accessToken.toString()}` };
+      const token = session.tokens?.idToken ?? session.tokens?.accessToken;
+      if (token) {
+        authHeader = { "Authorization": `Bearer ${token.toString()}` };
       }
     } catch (e) {
       // Ignorar error si no hay sesión (quizás es una ruta pública)
@@ -99,8 +100,9 @@ export async function apiMultipart<T = any>(path: string, formData: FormData): P
     let authHeader: any = {};
     try {
       const session = await fetchAuthSession();
-      if (session.tokens?.accessToken) {
-        authHeader = { "Authorization": `Bearer ${session.tokens.accessToken.toString()}` };
+      const token = session.tokens?.idToken ?? session.tokens?.accessToken;
+      if (token) {
+        authHeader = { "Authorization": `Bearer ${token.toString()}` };
       }
     } catch (e) {}
 

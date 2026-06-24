@@ -11,7 +11,7 @@ export function getCognitoVerifier() {
   if (!cognitoVerifier && config.cognitoUserPoolId && config.cognitoClientId) {
     cognitoVerifier = CognitoJwtVerifier.create({
       userPoolId: config.cognitoUserPoolId,
-      tokenUse: "access", // Or "id" based on your architecture
+      tokenUse: "id",
       clientId: config.cognitoClientId,
     });
   }
