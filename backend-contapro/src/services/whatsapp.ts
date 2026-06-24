@@ -546,7 +546,7 @@ export class WhatsAppService {
     try {
         // --- AUDIO HANDLING VIA GROQ (WHISPER) ---
         console.log('[WhatsApp] Transcribing audio with Groq...');
-        const text = await processAudioBuffer(buffer, groq);
+        const text = await processAudioBuffer(buffer, getGroq());
         console.log('[WhatsApp] Transcription:', text);
 
         if (!text) {
