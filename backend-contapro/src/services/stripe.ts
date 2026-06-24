@@ -1,13 +1,22 @@
 import Stripe from 'stripe';
 import { config } from '../config.js';
 
-if (!config.stripeSecretKey) {
-  console.warn('Stripe secret key not configured');
+let _stripe: Stripe | null = null;
+
+function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(config.stripeSecretKey, {
+      apiVersion: '2025-12-15.clover',
+      typescript: true,
+    });
+  }
+  return _stripe;
 }
 
-export const stripe = new Stripe(config.stripeSecretKey, {
-  apiVersion: '2025-12-15.clover',
-  typescript: true,
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getStripe(), prop, receiver);
+  },
 });
 
 export const getStripePriceId = (plan: 'MONTHLY' | 'ANNUAL' | 'LIFETIME' | 'QUARTERLY'): string => {

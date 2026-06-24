@@ -34,7 +34,8 @@ type IncomingCandidate = {
   raw: any;
 };
 
-const groq = new GroqService();
+let _groq: GroqService | null = null;
+function getGroq() { return _groq ??= new GroqService(); }
 
 export class WhatsAppService {
   private app: FastifyInstance;
@@ -426,7 +427,7 @@ export class WhatsAppService {
          const b64 = analysisBuffer.toString('base64');
          const dataUri = `data:${analysisMime};base64,${b64}`;
          
-         imageAnalysis = await groq.analyzeImage(dataUri);
+         imageAnalysis = await getGroq().analyzeImage(dataUri);
          console.log('[WhatsApp] Vision Analysis:', imageAnalysis);
 
          // Check if extraction is practically empty (missing amount)
