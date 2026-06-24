@@ -36,7 +36,7 @@ type IncomingCandidate = {
 
 let _groq: GroqService | null = null;
 function getGroq() {
-  if (!_groq) { _groq = new GroqService(); }
+  _groq ??= new GroqService();
   return _groq;
 }
 
