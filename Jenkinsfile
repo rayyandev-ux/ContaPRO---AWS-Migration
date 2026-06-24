@@ -148,12 +148,9 @@ pipeline {
         // =====================================================================
         stage('Build Backend') {
             when {
-                allOf {
-                    branch 'main'
-                    anyOf {
-                        changeset 'backend-contapro/**'
-                        triggeredBy 'UserIdCause'
-                    }
+                anyOf {
+                    changeset 'backend-contapro/**'
+                    triggeredBy 'UserIdCause'
                 }
             }
             steps {
@@ -168,12 +165,9 @@ pipeline {
         // =====================================================================
         stage('Push to ECR') {
             when {
-                allOf {
-                    branch 'main'
-                    anyOf {
-                        changeset 'backend-contapro/**'
-                        triggeredBy 'UserIdCause'
-                    }
+                anyOf {
+                    changeset 'backend-contapro/**'
+                    triggeredBy 'UserIdCause'
                 }
             }
             steps {
@@ -198,12 +192,9 @@ pipeline {
         // =====================================================================
         stage('Deploy Backend') {
             when {
-                allOf {
-                    branch 'main'
-                    anyOf {
-                        changeset 'backend-contapro/**'
-                        triggeredBy 'UserIdCause'
-                    }
+                anyOf {
+                    changeset 'backend-contapro/**'
+                    triggeredBy 'UserIdCause'
                 }
             }
             steps {
@@ -234,12 +225,9 @@ pipeline {
         // =====================================================================
         stage('Deploy Frontend') {
             when {
-                allOf {
-                    branch 'main'
-                    anyOf {
-                        changeset 'front-contapro/**'
-                        triggeredBy 'UserIdCause'
-                    }
+                anyOf {
+                    changeset 'front-contapro/**'
+                    triggeredBy 'UserIdCause'
                 }
             }
             steps {
