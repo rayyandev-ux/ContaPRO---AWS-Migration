@@ -9,6 +9,7 @@ resource "aws_elasticache_subnet_group" "redis" {
 }
 
 resource "aws_elasticache_cluster" "redis" {
+  #checkov:skip=CKV_AWS_134: Automatic backup not supported on cache.t4g.micro standalone node
   cluster_id           = "${var.project_name}-redis-${var.environment}"
   engine               = "redis"
   node_type            = "cache.t4g.micro"

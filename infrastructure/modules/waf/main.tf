@@ -19,6 +19,7 @@ terraform {
 }
 
 resource "aws_wafv2_web_acl" "main" {
+  #checkov:skip=CKV2_AWS_31: WAF logging requires Kinesis Firehose or S3, skipped for dev
   provider    = aws.us_east_1
   name        = "${var.project_name}-waf-${var.environment}"
   description = "WAF para CloudFront: rate limiting + reglas de seguridad"

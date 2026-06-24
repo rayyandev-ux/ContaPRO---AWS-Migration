@@ -13,6 +13,7 @@ data "aws_caller_identity" "current" {}
 
 # --- ECR: registro de imágenes Docker ---
 resource "aws_ecr_repository" "backend" {
+  #checkov:skip=CKV_AWS_136: Using default AES-256 encryption, KMS CMK adds cost without benefit for dev
   name                 = "${var.project_name}-backend-${var.environment}"
   image_tag_mutability = "IMMUTABLE"
 
@@ -78,6 +79,8 @@ resource "aws_iam_role" "ecs_task_role" {
 
 # Enviar emails vía SES
 resource "aws_iam_policy" "ecs_ses_policy" {
+  #checkov:skip=CKV_AWS_355: SES SendEmail/SendRawEmail require Resource=* as SES identities are not known at plan time
+  #checkov:skip=CKV_AWS_290: SES write actions (SendEmail) need wildcard until SES identity ARN is available
   name = "${var.project_name}-ecs-ses-${var.environment}"
   policy = jsonencode({
     Version = "2012-10-17"
@@ -115,6 +118,8 @@ resource "aws_iam_role_policy_attachment" "ecs_s3_uploads" {
 # Secreto de aplicación: contiene API keys (Stripe, OpenAI, etc.)
 # Terraform crea el contenedor vacío; los valores se cargan manualmente
 resource "aws_secretsmanager_secret" "app_secrets" {
+  #checkov:skip=CKV_AWS_149: Using default AWS encryption, KMS CMK adds cost for dev
+  #checkov:skip=CKV2_AWS_57: Automatic rotation requires Lambda function, not needed for manually-managed API keys
   name        = "${var.project_name}-app-secrets-${var.environment}"
   description = "API keys del backend (rellenar manualmente via CLI o consola)"
 }
@@ -147,11 +152,15 @@ resource "aws_iam_role_policy_attachment" "task_secrets" {
 # --- ALB INTERNO (no expuesto a internet) ---
 # El tráfico llega desde API Gateway vía VPC Link, no desde internet
 resource "aws_lb" "main" {
-  name               = "${var.project_name}-alb-${var.environment}"
-  internal           = true
-  load_balancer_type = "application"
-  security_groups    = [var.alb_sg_id]
-  subnets            = var.private_subnet_ids
+  #checkov:skip=CKV_AWS_150: Deletion protection disabled for dev environment easy teardown
+  #checkov:skip=CKV_AWS_91: Access logging requires dedicated S3 bucket, skipped for dev
+  #checkov:skip=CKV2_AWS_20: Internal ALB behind API Gateway, HTTP-to-HTTPS redirect not applicable
+  name                       = "${var.project_name}-alb-${var.environment}"
+  internal                   = true
+  load_balancer_type         = "application"
+  security_groups            = [var.alb_sg_id]
+  subnets                    = var.private_subnet_ids
+  drop_invalid_header_fields = true
 
   tags = {
     Name        = "${var.project_name}-alb-${var.environment}"
@@ -161,6 +170,7 @@ resource "aws_lb" "main" {
 
 # Target Group: healthcheck en /api/health
 resource "aws_lb_target_group" "main" {
+  #checkov:skip=CKV_AWS_378: Internal ALB uses HTTP, TLS terminated at API Gateway level
   name        = "${var.project_name}-tg-${var.environment}"
   port        = var.container_port
   protocol    = "HTTP"
@@ -177,8 +187,10 @@ resource "aws_lb_target_group" "main" {
   }
 }
 
-# Listener HTTP (puerto 80)
+# Listener HTTP (puerto 80) - interno, TLS termina en API Gateway
 resource "aws_lb_listener" "http" {
+  #checkov:skip=CKV_AWS_2: Internal ALB behind API Gateway VPC Link, HTTPS not needed
+  #checkov:skip=CKV_AWS_103: Internal ALB, TLS is terminated at API Gateway level
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
   protocol          = "HTTP"
@@ -191,6 +203,8 @@ resource "aws_lb_listener" "http" {
 
 # --- CloudWatch Log Group ---
 resource "aws_cloudwatch_log_group" "ecs_logs" {
+  #checkov:skip=CKV_AWS_338: 30-day retention is sufficient for dev environment
+  #checkov:skip=CKV_AWS_158: KMS encryption adds cost, default encryption is sufficient for dev
   name              = "/ecs/${var.project_name}-backend-${var.environment}"
   retention_in_days = 30
 }

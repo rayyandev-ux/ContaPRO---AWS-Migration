@@ -57,9 +57,10 @@ resource "aws_apigatewayv2_integration" "alb" {
 
 # --- Ruta catch-all: cualquier método + cualquier path → ALB ---
 resource "aws_apigatewayv2_route" "default" {
-  api_id    = aws_apigatewayv2_api.main.id
-  route_key = "$default"
-  target    = "integrations/${aws_apigatewayv2_integration.alb.id}"
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "$default"
+  target             = "integrations/${aws_apigatewayv2_integration.alb.id}"
+  authorization_type = "NONE"
 }
 
 # --- Stage: auto-deploy habilitado + throttling ---
@@ -98,6 +99,8 @@ resource "aws_apigatewayv2_stage" "default" {
 
 # --- CloudWatch Log Group para API Gateway ---
 resource "aws_cloudwatch_log_group" "api_gw" {
+  #checkov:skip=CKV_AWS_338: 14-day retention is sufficient for dev environment
+  #checkov:skip=CKV_AWS_158: KMS encryption adds cost, default encryption is sufficient for dev
   name              = "/aws/apigateway/${var.project_name}-api-${var.environment}"
   retention_in_days = 14
 

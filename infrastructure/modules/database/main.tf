@@ -25,16 +25,24 @@ data "aws_rds_engine_version" "postgresql" {
 # Cluster de Aurora Serverless v2 (PostgreSQL)
 # engine_mode "provisioned" + serverlessv2_scaling_configuration = Serverless v2
 resource "aws_rds_cluster" "aurora" {
-  cluster_identifier     = "${var.project_name}-aurora-cluster-${var.environment}"
-  engine                 = "aurora-postgresql"
-  engine_mode            = "provisioned"
-  engine_version         = data.aws_rds_engine_version.postgresql.version
-  database_name          = "contapro"
-  master_username        = "postgres"
-  master_password        = random_password.db_password.result
-  db_subnet_group_name   = aws_db_subnet_group.aurora.name
-  vpc_security_group_ids = [var.aurora_sg_id]
-  skip_final_snapshot    = true # Cambiar a false en producción si deseas un snapshot final
+  #checkov:skip=CKV_AWS_139: Deletion protection disabled for dev environment easy teardown
+  #checkov:skip=CKV_AWS_327: Using default AWS encryption, KMS CMK adds cost for dev
+  #checkov:skip=CKV2_AWS_8: AWS Backup plan not needed for dev, using built-in Aurora backups
+  #checkov:skip=CKV2_AWS_27: Query logging requires custom parameter group, will configure for prod
+  cluster_identifier                  = "${var.project_name}-aurora-cluster-${var.environment}"
+  engine                              = "aurora-postgresql"
+  engine_mode                         = "provisioned"
+  engine_version                      = data.aws_rds_engine_version.postgresql.version
+  database_name                       = "contapro"
+  master_username                     = "postgres"
+  master_password                     = random_password.db_password.result
+  db_subnet_group_name                = aws_db_subnet_group.aurora.name
+  vpc_security_group_ids              = [var.aurora_sg_id]
+  skip_final_snapshot                 = true
+  storage_encrypted                   = true
+  iam_database_authentication_enabled = true
+  copy_tags_to_snapshot               = true
+  enabled_cloudwatch_logs_exports     = ["postgresql"]
 
   serverlessv2_scaling_configuration {
     max_capacity = 2.0
@@ -49,10 +57,14 @@ resource "aws_rds_cluster" "aurora" {
 
 # Instancia dentro del Cluster
 resource "aws_rds_cluster_instance" "aurora_instance" {
-  cluster_identifier = aws_rds_cluster.aurora.id
-  instance_class     = "db.serverless"
-  engine             = aws_rds_cluster.aurora.engine
-  engine_version     = aws_rds_cluster.aurora.engine_version
+  #checkov:skip=CKV_AWS_118: Enhanced monitoring requires dedicated IAM role, skipped for dev
+  #checkov:skip=CKV_AWS_354: Performance Insights uses default encryption on free tier
+  cluster_identifier           = aws_rds_cluster.aurora.id
+  instance_class               = "db.serverless"
+  engine                       = aws_rds_cluster.aurora.engine
+  engine_version               = aws_rds_cluster.aurora.engine_version
+  auto_minor_version_upgrade   = true
+  performance_insights_enabled = true
 
   tags = {
     Name        = "${var.project_name}-aurora-instance-${var.environment}"
@@ -62,6 +74,8 @@ resource "aws_rds_cluster_instance" "aurora_instance" {
 
 # Almacenar credenciales en AWS Secrets Manager para el backend
 resource "aws_secretsmanager_secret" "db_credentials" {
+  #checkov:skip=CKV_AWS_149: Using default AWS encryption, KMS CMK adds cost for dev
+  #checkov:skip=CKV2_AWS_57: Automatic rotation requires Lambda, DB credentials managed by Terraform
   name        = "${var.project_name}-db-credentials-${var.environment}"
   description = "Credenciales de Aurora PostgreSQL para ContaPRO"
 }

@@ -11,7 +11,8 @@
 
 # --- SNS Topic: destino de las alertas ---
 resource "aws_sns_topic" "alerts" {
-  name = "${var.project_name}-alerts-${var.environment}"
+  name              = "${var.project_name}-alerts-${var.environment}"
+  kms_master_key_id = "alias/aws/sns"
 
   tags = {
     Name        = "${var.project_name}-alerts-${var.environment}"

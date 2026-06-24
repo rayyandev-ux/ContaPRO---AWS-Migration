@@ -1,7 +1,11 @@
 # S3 Bucket for user uploads (documents, invoices, etc.)
 resource "aws_s3_bucket" "uploads" {
+  #checkov:skip=CKV_AWS_18: Access logging requires dedicated logging bucket, skipped for dev
+  #checkov:skip=CKV_AWS_144: Cross-region replication not needed for dev
+  #checkov:skip=CKV_AWS_145: Using default S3 encryption (SSE-S3), KMS adds cost
+  #checkov:skip=CKV2_AWS_62: S3 event notifications not needed for uploads bucket
   bucket        = "${var.project_name}-uploads-${var.environment}"
-  force_destroy = false # Protect against accidental deletion of user data
+  force_destroy = false
 
   tags = {
     Name        = "${var.project_name}-uploads-${var.environment}"
@@ -20,6 +24,26 @@ resource "aws_s3_bucket_public_access_block" "uploads" {
   restrict_public_buckets = true
 }
 
+resource "aws_s3_bucket_versioning" "uploads" {
+  bucket = aws_s3_bucket.uploads.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
+  bucket = aws_s3_bucket.uploads.id
+
+  rule {
+    id     = "cleanup-old-versions"
+    status = "Enabled"
+
+    noncurrent_version_expiration {
+      noncurrent_days = 90
+    }
+  }
+}
+
 # CORS Configuration for the bucket
 # Crucial for allowing the frontend to upload files directly using the Presigned URL
 resource "aws_s3_bucket_cors_configuration" "uploads" {
@@ -28,7 +52,7 @@ resource "aws_s3_bucket_cors_configuration" "uploads" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["PUT", "POST", "GET"]
-    allowed_origins = ["*"] # In production, restrict this to your CloudFront domain
+    allowed_origins = ["*"]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
   }

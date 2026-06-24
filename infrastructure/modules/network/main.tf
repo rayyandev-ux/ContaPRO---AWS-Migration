@@ -7,6 +7,8 @@
 
 # --- VPC ---
 resource "aws_vpc" "main" {
+  #checkov:skip=CKV2_AWS_11: VPC flow logging adds cost, skipped for dev environment
+  #checkov:skip=CKV2_AWS_12: Default SG is unused, all resources use dedicated SGs from security module
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -29,6 +31,7 @@ resource "aws_internet_gateway" "main" {
 
 # --- Subnets Públicas ---
 resource "aws_subnet" "public" {
+  #checkov:skip=CKV_AWS_130: Public subnets require public IPs for NAT Gateway and internet-facing resources
   count                   = length(var.public_subnets_cidr)
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.public_subnets_cidr[count.index]

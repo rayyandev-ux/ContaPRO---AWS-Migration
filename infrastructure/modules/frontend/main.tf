@@ -8,6 +8,10 @@
 
 # --- S3 Bucket para el frontend estático ---
 resource "aws_s3_bucket" "frontend" {
+  #checkov:skip=CKV_AWS_18: Access logging requires dedicated logging bucket, skipped for dev
+  #checkov:skip=CKV_AWS_144: Cross-region replication not needed for dev
+  #checkov:skip=CKV_AWS_145: Using default S3 encryption (SSE-S3), KMS adds cost
+  #checkov:skip=CKV2_AWS_62: S3 event notifications not needed for static frontend assets
   bucket        = "${var.project_name}-frontend-${var.environment}"
   force_destroy = true
 
@@ -20,7 +24,7 @@ resource "aws_s3_bucket" "frontend" {
 resource "aws_s3_bucket_ownership_controls" "frontend" {
   bucket = aws_s3_bucket.frontend.id
   rule {
-    object_ownership = "BucketOwnerPreferred"
+    object_ownership = "BucketOwnerEnforced"
   }
 }
 
@@ -32,6 +36,26 @@ resource "aws_s3_bucket_public_access_block" "frontend" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  rule {
+    id     = "cleanup-old-versions"
+    status = "Enabled"
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+  }
 }
 
 # OAC: permite a CloudFront leer objetos del bucket sin hacerlos públicos
@@ -82,6 +106,12 @@ resource "aws_cloudfront_function" "rewrite_urls" {
 
 # --- CloudFront Distribution ---
 resource "aws_cloudfront_distribution" "frontend" {
+  #checkov:skip=CKV_AWS_86: Access logging requires dedicated S3 bucket, skipped for dev
+  #checkov:skip=CKV_AWS_310: Origin failover requires secondary origin, not needed for dev
+  #checkov:skip=CKV_AWS_374: Geo restriction not required, app serves LATAM region without blocking
+  #checkov:skip=CKV_AWS_305: Default root object conflicts with CloudFront Function URL rewrite (/ -> /es)
+  #checkov:skip=CKV_AWS_174: When using cloudfront_default_certificate, minimum_protocol_version is fixed to TLSv1 by AWS
+  #checkov:skip=CKV2_AWS_47: WAF already includes AWSManagedRulesKnownBadInputsRuleSet which covers Log4j
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_id                = "S3-${aws_s3_bucket.frontend.id}"
@@ -104,6 +134,9 @@ resource "aws_cloudfront_distribution" "frontend" {
 
     # Política de caché administrada: "CachingOptimized"
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+
+    # AWS Managed Response Headers Policy: SecurityHeadersPolicy
+    response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03"
 
     viewer_protocol_policy = "redirect-to-https"
 

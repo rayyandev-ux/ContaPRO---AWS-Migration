@@ -27,6 +27,8 @@ terraform {
 # Al crearse, AWS asigna 4 nameservers (ns-xxx.awsdns-xx.com)
 # que debes configurar en GoDaddy como Custom Nameservers
 resource "aws_route53_zone" "main" {
+  #checkov:skip=CKV2_AWS_39: DNS query logging requires CloudWatch log group in us-east-1, skipped for dev
+  #checkov:skip=CKV2_AWS_38: DNSSEC requires KMS key and additional configuration, skipped for dev
   name = var.domain_name
 
   tags = {
