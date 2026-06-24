@@ -6,7 +6,10 @@
 //   2. Build Backend: imagen Docker con pnpm
 //   3. Push to ECR: tags :latest y :<commit-sha>
 //   4. Deploy Backend: ECS force-new-deployment
-//   5. Build & Deploy Frontend: pnpm build → S3 sync → CloudFront invalidation
+//   5. Database Migrations: ECS run-task con prisma migrate deploy
+//   6. Build & Deploy Frontend: pnpm build → S3 sync → CloudFront invalidation
+//
+// Todo se resuelve dinámicamente desde AWS — no requiere variables manuales.
 //
 // Requisitos en Jenkins:
 //   - Plugins: Pipeline, Docker Pipeline, SonarQube Scanner, AWS Credentials
@@ -48,7 +51,6 @@ pipeline {
         // =====================================================================
         stage('Quality & Security') {
             parallel {
-                // --- SonarQube: análisis estático del código TypeScript ---
                 stage('SonarQube Analysis') {
                     when {
                         anyOf {
@@ -74,7 +76,6 @@ pipeline {
                     }
                 }
 
-                // --- Checkov: escaneo de seguridad de la infraestructura Terraform ---
                 stage('Checkov Scan') {
                     when {
                         anyOf {
@@ -105,7 +106,6 @@ pipeline {
             }
         }
 
-        // --- SonarQube Quality Gate: bloquea si no pasa el umbral ---
         stage('Quality Gate') {
             when {
                 anyOf {
@@ -198,7 +198,105 @@ pipeline {
         }
 
         // =====================================================================
-        // Stage 6: Build & Deploy Frontend
+        // Stage 6: Database Migrations (prisma migrate deploy via ECS run-task)
+        //
+        // Ejecuta las migraciones de Prisma dentro de la VPC usando la misma
+        // imagen Docker del backend. Obtiene la task definition y la network
+        // configuration del servicio ECS desplegado.
+        // =====================================================================
+        stage('Database Migrations') {
+            when {
+                anyOf {
+                    changeset 'backend-contapro/**'
+                    triggeredBy 'UserIdCause'
+                }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                                  credentialsId: 'aws-credentials',
+                                  accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                  secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        echo "=== Obteniendo configuración del servicio ECS ==="
+                        TASK_DEF=$(aws ecs describe-services \
+                            --cluster ${ECS_CLUSTER} \
+                            --services ${ECS_SERVICE} \
+                            --region ${AWS_REGION} \
+                            --query "services[0].taskDefinition" \
+                            --output text)
+                        echo "Task Definition: ${TASK_DEF}"
+
+                        SUBNETS=$(aws ecs describe-services \
+                            --cluster ${ECS_CLUSTER} \
+                            --services ${ECS_SERVICE} \
+                            --region ${AWS_REGION} \
+                            --query "services[0].networkConfiguration.awsvpcConfiguration.subnets" \
+                            --output json)
+
+                        SECURITY_GROUPS=$(aws ecs describe-services \
+                            --cluster ${ECS_CLUSTER} \
+                            --services ${ECS_SERVICE} \
+                            --region ${AWS_REGION} \
+                            --query "services[0].networkConfiguration.awsvpcConfiguration.securityGroups" \
+                            --output json)
+
+                        CONTAINER_NAME=$(aws ecs describe-task-definition \
+                            --task-definition "${TASK_DEF}" \
+                            --region ${AWS_REGION} \
+                            --query "taskDefinition.containerDefinitions[0].name" \
+                            --output text)
+
+                        echo "=== Ejecutando prisma migrate deploy ==="
+                        TASK_ARN=$(aws ecs run-task \
+                            --cluster ${ECS_CLUSTER} \
+                            --task-definition "${TASK_DEF}" \
+                            --launch-type FARGATE \
+                            --network-configuration "awsvpcConfiguration={subnets=${SUBNETS},securityGroups=${SECURITY_GROUPS},assignPublicIp=DISABLED}" \
+                            --overrides "{\"containerOverrides\":[{\"name\":\"${CONTAINER_NAME}\",\"command\":[\"npx\",\"prisma\",\"migrate\",\"deploy\"]}]}" \
+                            --region ${AWS_REGION} \
+                            --query "tasks[0].taskArn" \
+                            --output text \
+                            --no-cli-pager)
+                        echo "Migration Task: ${TASK_ARN}"
+
+                        echo "Esperando a que la migración termine..."
+                        aws ecs wait tasks-stopped \
+                            --cluster ${ECS_CLUSTER} \
+                            --tasks "${TASK_ARN}" \
+                            --region ${AWS_REGION}
+
+                        EXIT_CODE=$(aws ecs describe-tasks \
+                            --cluster ${ECS_CLUSTER} \
+                            --tasks "${TASK_ARN}" \
+                            --region ${AWS_REGION} \
+                            --query "tasks[0].containers[0].exitCode" \
+                            --output text)
+                        echo "Migration exit code: ${EXIT_CODE}"
+
+                        if [ "${EXIT_CODE}" != "0" ]; then
+                            echo "=== ERROR: Migración falló. Logs: ==="
+                            TASK_ID=$(echo "${TASK_ARN}" | awk -F'/' '{print $NF}')
+                            aws logs get-log-events \
+                                --log-group-name "/ecs/${PROJECT_NAME}-backend-${ENVIRONMENT}" \
+                                --log-stream-name "ecs/${CONTAINER_NAME}/${TASK_ID}" \
+                                --region ${AWS_REGION} \
+                                --query "events[*].message" \
+                                --output text 2>/dev/null || true
+                            exit 1
+                        fi
+
+                        echo "=== Migraciones aplicadas exitosamente ==="
+                    '''
+                }
+            }
+        }
+
+        // =====================================================================
+        // Stage 7: Build & Deploy Frontend
+        //
+        // Obtiene dinámicamente desde AWS:
+        //   - NEXT_PUBLIC_API_BASE       (API Gateway endpoint)
+        //   - NEXT_PUBLIC_COGNITO_*      (User Pool ID, Client ID, Region)
         // =====================================================================
         stage('Deploy Frontend') {
             when {
@@ -214,7 +312,7 @@ pipeline {
                                       accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                       secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
-                            # Obtener variables del backend dinámicamente desde AWS
+                            # --- Obtener variables del backend dinámicamente desde AWS ---
                             API_NAME="${PROJECT_NAME}-api-${ENVIRONMENT}"
                             export NEXT_PUBLIC_API_BASE=$(aws apigatewayv2 get-apis \
                                 --region ${AWS_REGION} \
@@ -242,16 +340,19 @@ pipeline {
                             echo "NEXT_PUBLIC_COGNITO_CLIENT_ID=${NEXT_PUBLIC_COGNITO_CLIENT_ID}"
                             echo "NEXT_PUBLIC_COGNITO_REGION=${NEXT_PUBLIC_COGNITO_REGION}"
 
+                            # --- Build ---
                             pnpm install --frozen-lockfile
                             pnpm run build
 
+                            # --- Deploy a S3 ---
                             aws s3 sync ./out "s3://${FRONTEND_BUCKET}" --delete --region ${AWS_REGION}
 
+                            # --- Invalidar caché de CloudFront ---
                             DIST_ID=$(aws cloudfront list-distributions --query \
                                 "DistributionList.Items[?Origins.Items[?Id=='S3-${FRONTEND_BUCKET}']].Id" \
                                 --output text --region us-east-1)
 
-                            if [ -n "$DIST_ID" ]; then
+                            if [ -n "$DIST_ID" ] && [ "$DIST_ID" != "None" ]; then
                                 aws cloudfront create-invalidation \
                                     --distribution-id "$DIST_ID" \
                                     --paths "/*" \
