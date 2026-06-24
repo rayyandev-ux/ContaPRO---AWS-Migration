@@ -214,6 +214,34 @@ pipeline {
                                       accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                       secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
+                            # Obtener variables del backend dinámicamente desde AWS
+                            API_NAME="${PROJECT_NAME}-api-${ENVIRONMENT}"
+                            export NEXT_PUBLIC_API_BASE=$(aws apigatewayv2 get-apis \
+                                --region ${AWS_REGION} \
+                                --query "Items[?Name=='${API_NAME}'].ApiEndpoint | [0]" \
+                                --output text)
+
+                            POOL_NAME="${PROJECT_NAME}-user-pool-${ENVIRONMENT}"
+                            POOL_ID=$(aws cognito-idp list-user-pools --max-results 20 \
+                                --region ${AWS_REGION} \
+                                --query "UserPools[?Name=='${POOL_NAME}'].Id | [0]" \
+                                --output text)
+                            export NEXT_PUBLIC_COGNITO_USER_POOL_ID="${POOL_ID}"
+                            export NEXT_PUBLIC_COGNITO_REGION="${AWS_REGION}"
+
+                            if [ "${POOL_ID}" != "None" ] && [ -n "${POOL_ID}" ]; then
+                                export NEXT_PUBLIC_COGNITO_CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
+                                    --user-pool-id "${POOL_ID}" \
+                                    --region ${AWS_REGION} \
+                                    --query "UserPoolClients[0].ClientId" \
+                                    --output text)
+                            fi
+
+                            echo "NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE}"
+                            echo "NEXT_PUBLIC_COGNITO_USER_POOL_ID=${NEXT_PUBLIC_COGNITO_USER_POOL_ID}"
+                            echo "NEXT_PUBLIC_COGNITO_CLIENT_ID=${NEXT_PUBLIC_COGNITO_CLIENT_ID}"
+                            echo "NEXT_PUBLIC_COGNITO_REGION=${NEXT_PUBLIC_COGNITO_REGION}"
+
                             pnpm install --frozen-lockfile
                             pnpm run build
 
@@ -233,12 +261,6 @@ pipeline {
                     }
                 }
             }
-            // Las variables NEXT_PUBLIC_* se configuran en Jenkins:
-            // Manage Jenkins > System > Global properties > Environment variables
-            // - NEXT_PUBLIC_API_BASE
-            // - NEXT_PUBLIC_COGNITO_USER_POOL_ID
-            // - NEXT_PUBLIC_COGNITO_CLIENT_ID
-            // - NEXT_PUBLIC_COGNITO_REGION
         }
     }
 
