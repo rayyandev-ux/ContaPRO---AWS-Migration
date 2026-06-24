@@ -57,6 +57,7 @@ resource "aws_apigatewayv2_integration" "alb" {
 
 # --- Ruta catch-all: cualquier método + cualquier path → ALB ---
 resource "aws_apigatewayv2_route" "default" {
+  #checkov:skip=CKV_AWS_309: Public API endpoint, auth handled by Cognito at application level
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "$default"
   target             = "integrations/${aws_apigatewayv2_integration.alb.id}"

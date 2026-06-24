@@ -55,6 +55,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "frontend" {
     noncurrent_version_expiration {
       noncurrent_days = 30
     }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
   }
 }
 
@@ -112,6 +116,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   #checkov:skip=CKV_AWS_305: Default root object conflicts with CloudFront Function URL rewrite (/ -> /es)
   #checkov:skip=CKV_AWS_174: When using cloudfront_default_certificate, minimum_protocol_version is fixed to TLSv1 by AWS
   #checkov:skip=CKV2_AWS_47: WAF already includes AWSManagedRulesKnownBadInputsRuleSet which covers Log4j
+  #checkov:skip=CKV2_AWS_32: Using AWS managed SecurityHeadersPolicy via response_headers_policy_id, graph check cannot resolve managed policy IDs
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_id                = "S3-${aws_s3_bucket.frontend.id}"
