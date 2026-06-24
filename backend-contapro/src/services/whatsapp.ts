@@ -35,7 +35,10 @@ type IncomingCandidate = {
 };
 
 let _groq: GroqService | null = null;
-function getGroq() { return _groq ??= new GroqService(); }
+function getGroq() {
+  if (!_groq) { _groq = new GroqService(); }
+  return _groq;
+}
 
 export class WhatsAppService {
   private app: FastifyInstance;
