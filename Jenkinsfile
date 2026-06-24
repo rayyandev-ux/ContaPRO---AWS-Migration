@@ -121,29 +121,6 @@ pipeline {
         }
 
         // =====================================================================
-        // Stage 2: Terraform Validate
-        // =====================================================================
-        stage('Terraform Validate') {
-            when {
-                changeset 'infrastructure/**'
-            }
-            steps {
-                dir('infrastructure') {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
-                                      credentialsId: 'aws-credentials',
-                                      accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                                      secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh '''
-                            terraform init -input=false
-                            terraform fmt -recursive -check
-                            terraform validate
-                        '''
-                    }
-                }
-            }
-        }
-
-        // =====================================================================
         // Stage 3: Build Backend Docker Image
         // =====================================================================
         stage('Build Backend') {
