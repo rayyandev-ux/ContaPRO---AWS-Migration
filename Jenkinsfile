@@ -247,12 +247,18 @@ pipeline {
                             --output text)
 
                         echo "=== Ejecutando prisma migrate deploy ==="
+                        cat > /tmp/ecs-overrides.json <<EOFJ
+{"containerOverrides":[{"name":"${CONTAINER_NAME}","command":["npx","prisma","migrate","deploy"]}]}
+EOFJ
+                        cat > /tmp/ecs-network.json <<EOFN
+{"awsvpcConfiguration":{"subnets":${SUBNETS},"securityGroups":${SECURITY_GROUPS},"assignPublicIp":"DISABLED"}}
+EOFN
                         TASK_ARN=$(aws ecs run-task \
                             --cluster ${ECS_CLUSTER} \
                             --task-definition "${TASK_DEF}" \
                             --launch-type FARGATE \
-                            --network-configuration "awsvpcConfiguration={subnets=${SUBNETS},securityGroups=${SECURITY_GROUPS},assignPublicIp=DISABLED}" \
-                            --overrides "{\"containerOverrides\":[{\"name\":\"${CONTAINER_NAME}\",\"command\":[\"npx\",\"prisma\",\"migrate\",\"deploy\"]}]}" \
+                            --network-configuration file:///tmp/ecs-network.json \
+                            --overrides file:///tmp/ecs-overrides.json \
                             --region ${AWS_REGION} \
                             --query "tasks[0].taskArn" \
                             --output text \
