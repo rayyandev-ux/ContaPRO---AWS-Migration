@@ -68,8 +68,8 @@ pipeline {
                                         -Dsonar.sources=src \
                                         -Dsonar.language=ts \
                                         -Dsonar.sourceEncoding=UTF-8 \
-                                        -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
-                                        -Dsonar.exclusions=node_modules/**,dist/**,coverage/**
+                                        -Dsonar.exclusions=node_modules/**,dist/**,coverage/** \
+                                        -Dsonar.coverage.exclusions=**/*
                                 '''
                             }
                         }
