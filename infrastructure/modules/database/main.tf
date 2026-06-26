@@ -76,8 +76,9 @@ resource "aws_rds_cluster_instance" "aurora_instance" {
 resource "aws_secretsmanager_secret" "db_credentials" {
   #checkov:skip=CKV_AWS_149: Using default AWS encryption, KMS CMK adds cost for dev
   #checkov:skip=CKV2_AWS_57: Automatic rotation requires Lambda, DB credentials managed by Terraform
-  name        = "${var.project_name}-db-credentials-${var.environment}"
-  description = "Credenciales de Aurora PostgreSQL para ContaPRO"
+  name                    = "${var.project_name}-db-credentials-${var.environment}"
+  description             = "Credenciales de Aurora PostgreSQL para ContaPRO"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "db_credentials_version" {

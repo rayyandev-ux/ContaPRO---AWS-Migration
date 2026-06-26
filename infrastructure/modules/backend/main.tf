@@ -122,8 +122,9 @@ resource "aws_iam_role_policy_attachment" "ecs_s3_uploads" {
 resource "aws_secretsmanager_secret" "app_secrets" {
   #checkov:skip=CKV_AWS_149: Using default AWS encryption, KMS CMK adds cost for dev
   #checkov:skip=CKV2_AWS_57: Automatic rotation requires Lambda function, not needed for manually-managed API keys
-  name        = "${var.project_name}-app-secrets-${var.environment}"
-  description = "API keys del backend (rellenar manualmente via CLI o consola)"
+  name                    = "${var.project_name}-app-secrets-${var.environment}"
+  description             = "API keys del backend (rellenar manualmente via CLI o consola)"
+  recovery_window_in_days = 0
 }
 
 # Leer secretos (Execution Role para inyectar DATABASE_URL, Task Role para SDK)
