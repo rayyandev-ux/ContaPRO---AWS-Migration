@@ -149,10 +149,11 @@ export default function RegisterContent() {
     try {
         if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
             try {
-                const { confirmSignUp } = await import('aws-amplify/auth');
+                const { confirmSignUp, signIn } = await import('aws-amplify/auth');
                 await confirmSignUp({ username: email, confirmationCode: code });
+                await signIn({ username: email, password });
             } catch (authErr: any) {
-                console.warn("Cognito confirmSignUp error", authErr);
+                console.warn("Cognito confirmSignUp/signIn error", authErr);
                 setError(authErr?.message || tRegister('step4.invalidCode'));
                 setLoading(false);
                 return;

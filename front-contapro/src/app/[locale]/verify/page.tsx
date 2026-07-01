@@ -56,7 +56,7 @@ function VerifyForm() {
             confirmationCode: clean
           });
           if (isSignUpComplete) {
-            router.push("/pricing");
+            router.push("/login");
             return;
           }
         } catch (authError: any) {
