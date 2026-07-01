@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import Aurora from "@/components/Aurora";
 import { cn } from "@/lib/utils";
-import { resetPassword } from 'aws-amplify/auth';
+
 
 export default function ForgotPasswordPage() {
   const t = useTranslations('Forgot');
@@ -35,14 +35,6 @@ export default function ForgotPasswordPage() {
       return;
     }
     try {
-      if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
-        try {
-          await resetPassword({ username: email });
-        } catch (authError) {
-          console.warn("Cognito forgot password error", authError);
-        }
-      }
-
       const res = await fetch(BASE + "/api/auth/forgot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

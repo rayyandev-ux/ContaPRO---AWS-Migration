@@ -12,7 +12,6 @@ import { ArrowRight, ChevronLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import Aurora from "@/components/Aurora";
 import { cn } from "@/lib/utils";
-import { confirmSignUp, resendSignUpCode } from 'aws-amplify/auth';
 
 function VerifyForm() {
   const t = useTranslations('Verify');
@@ -49,21 +48,6 @@ function VerifyForm() {
     }
 
     try {
-      if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
-        try {
-          const { isSignUpComplete } = await confirmSignUp({
-            username: email,
-            confirmationCode: clean
-          });
-          if (isSignUpComplete) {
-            router.push("/pricing");
-            return;
-          }
-        } catch (authError: any) {
-          console.warn("Cognito verification error", authError);
-        }
-      }
-
       const { ok, error } = await apiJson("/api/auth/verify", {
         method: "POST",
         body: JSON.stringify({ email, code: clean }),
@@ -84,14 +68,6 @@ function VerifyForm() {
     setError(null);
     setInfo(null);
     try {
-      if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
-        try {
-          await resendSignUpCode({ username: email });
-        } catch (authError) {
-          console.warn("Cognito resend code error", authError);
-        }
-      }
-
       const { ok, error } = await apiJson("/api/auth/resend", {
         method: "POST",
         body: JSON.stringify({ email }),
