@@ -192,16 +192,15 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         return res.internalServerError('Error al crear la cuenta. Por favor intente nuevamente.');
     }
 
-    // 5. Enviar Email de Verificación
-    // En producción real, esperaríamos que sendVerificationEmail sea asíncrono pero no bloqueante o muy rápido.
-    try {
-        const emailLocale = language === 'en' ? 'en' : 'es';
-        // Force update: pass all required arguments
-        await sendVerificationEmail(app, email, code, { locale: emailLocale });
-    } catch (err) {
-        app.log.error(err);
-        // No fallamos el registro si falla el email, pero logueamos. 
-        // El usuario podrá pedir reenvío.
+    // 5. Enviar Email de Verificación (solo si NO hay Cognito configurado,
+    //    ya que Cognito envía su propio código de verificación)
+    if (!config.cognitoUserPoolId) {
+      try {
+          const emailLocale = language === 'en' ? 'en' : 'es';
+          await sendVerificationEmail(app, email, code, { locale: emailLocale });
+      } catch (err) {
+          app.log.error(err);
+      }
     }
 
     return res.status(201).send({ ok: true, message: 'Usuario registrado. Revisa tu email para verificar la cuenta.', userId: user.id, merged: false });
@@ -236,10 +235,15 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const { email, code } = parse.data;
     const user = await app.prisma.user.findUnique({ where: { email } });
     if (!user || user.emailVerified !== false) return res.badRequest('Estado inválido');
-    if (!user.verificationCode || !user.verificationExpires) return res.badRequest('No hay código activo');
-    const now = Date.now();
-    if (user.verificationCode !== code) return res.badRequest('Código inválido');
-    if (user.verificationExpires.getTime() < now) return res.badRequest('Código expirado');
+
+    if (config.cognitoUserPoolId) {
+      // Cognito ya verificó el código via confirmSignUp en el frontend
+    } else {
+      if (!user.verificationCode || !user.verificationExpires) return res.badRequest('No hay código activo');
+      if (user.verificationCode !== code) return res.badRequest('Código inválido');
+      if (user.verificationExpires.getTime() < Date.now()) return res.badRequest('Código expirado');
+    }
+
     const updated = await app.prisma.user.update({
       where: { id: user.id },
       data: { emailVerified: true, verificationCode: null, verificationExpires: null },
@@ -249,7 +253,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const token = app.jwt.sign({ sub: updated.id, userId: updated.id, profileId: profile.id, type: 'session' }, { expiresIn: '7d' });
     const baseOpts = getCookieOpts(req);
     res.setCookie('session', token, { ...baseOpts, maxAge: 7 * 24 * 60 * 60 });
-    return res.send({ ok: true, token });
+    return res.send({ ok: true });
   });
 
   // Reenviar código
@@ -260,11 +264,15 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const user = await app.prisma.user.findUnique({ where: { email } });
     if (!user) return res.notFound('No existe');
     if (user.emailVerified) return res.badRequest('Ya verificado');
-    const code = generateCode();
-    const expires = new Date(Date.now() + 15 * 60 * 1000);
-    await app.prisma.user.update({ where: { id: user.id }, data: { verificationCode: code, verificationExpires: expires } });
-    const locale = String((req.headers as any)['accept-language'] || '').toLowerCase().startsWith('en') ? 'en' : 'es';
-    await sendVerificationEmail(app, email, code, { locale });
+
+    if (!config.cognitoUserPoolId) {
+      const code = generateCode();
+      const expires = new Date(Date.now() + 15 * 60 * 1000);
+      await app.prisma.user.update({ where: { id: user.id }, data: { verificationCode: code, verificationExpires: expires } });
+      const locale = String((req.headers as any)['accept-language'] || '').toLowerCase().startsWith('en') ? 'en' : 'es';
+      await sendVerificationEmail(app, email, code, { locale });
+    }
+
     return res.send({ ok: true });
   });
 
@@ -300,7 +308,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const updated = await app.prisma.user.update({ where: { id: user.id }, data: { password: hashed, resetCode: null, resetExpires: null }, select: { id: true } });
     const token = app.jwt.sign({ sub: updated.id }, { expiresIn: '7d' });
     res.setCookie('session', token, getCookieOpts(req));
-    return res.send({ ok: true, token });
+    return res.send({ ok: true });
   });
 
   // DEPRECATED: This endpoint is no longer used. Please use the checkout flow.

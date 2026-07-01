@@ -1,19 +1,6 @@
+import { fetchAuthSession } from 'aws-amplify/auth';
+
 export const BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
-
-const TOKEN_KEY = "contapro_token";
-
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string) {
-  if (typeof window !== "undefined") localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function clearToken() {
-  if (typeof window !== "undefined") localStorage.removeItem(TOKEN_KEY);
-}
 
 // Caché simple en memoria (sólo en cliente) para GETs
 const g: any = globalThis as any;
@@ -21,9 +8,10 @@ if (!g.__contapro_api_cache) {
   g.__contapro_api_cache = new Map<string, { expires: number; data: any }>();
 }
 const API_CACHE: Map<string, { expires: number; data: any }> = g.__contapro_api_cache;
-const DEFAULT_TTL_MS = Number(process.env.NEXT_PUBLIC_API_CACHE_TTL ?? 300_000);
+const DEFAULT_TTL_MS = Number(process.env.NEXT_PUBLIC_API_CACHE_TTL ?? 300_000); // 5 minutos por defecto
 
 function makeKey(path: string): string {
+  // credential include hace el caché por sesión del navegador
   return path;
 }
 
@@ -36,11 +24,6 @@ export function invalidateApiCache(pathStartsWith: string) {
   for (const key of Array.from(API_CACHE.keys())) {
     if (key.startsWith(prefix)) API_CACHE.delete(key);
   }
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function apiJson<T = any>(path: string, init: RequestInit = {}): Promise<{ ok: boolean; data?: T; error?: string }>{
@@ -62,21 +45,27 @@ export async function apiJson<T = any>(path: string, init: RequestInit = {}): Pr
     }
     const url = `${BASE}${urlPath}`;
 
+    let authHeader = {};
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken ?? session.tokens?.accessToken;
+      if (token) {
+        authHeader = { "Authorization": `Bearer ${token.toString()}` };
+      }
+    } catch (e) {
+      // Ignorar error si no hay sesión (quizás es una ruta pública)
+    }
+
     const res = await fetch(url, {
       ...init,
       headers: {
         ...(init.headers || {}),
-        ...authHeaders(),
+        ...authHeader,
         ...(init.body ? { "Content-Type": "application/json" } : {}),
       },
-      credentials: "omit",
+      credentials: "omit", // Cambiado de include a omit porque ya usamos el Header Authorization
     });
     const data = await res.json().catch(() => ({}));
-
-    if (data?.token) {
-      setToken(data.token);
-    }
-
     if (res.status === 402) {
       const msg402 = (data && (data.message || data.error)) || `Error ${res.status}`;
       try {
@@ -107,19 +96,23 @@ export async function apiMultipart<T = any>(path: string, formData: FormData): P
       urlPath = '/api/' + path.substring(11);
     }
     const url = `${BASE}${urlPath}`;
+    
+    let authHeader: any = {};
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken ?? session.tokens?.accessToken;
+      if (token) {
+        authHeader = { "Authorization": `Bearer ${token.toString()}` };
+      }
+    } catch (e) {}
 
     const res = await fetch(url, {
       method: "POST",
       body: formData,
-      headers: authHeaders(),
-      credentials: "omit",
+      headers: authHeader,
+      credentials: "omit", // Cambiado a omit
     });
     const data = await res.json().catch(() => ({}));
-
-    if (data?.token) {
-      setToken(data.token);
-    }
-
     if (res.status === 402) {
       const msg402 = (data && (data.message || data.error)) || `Error ${res.status}`;
       try {

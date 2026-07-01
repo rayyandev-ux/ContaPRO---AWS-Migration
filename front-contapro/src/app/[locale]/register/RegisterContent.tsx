@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Aurora from "@/components/Aurora";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
+import { signUp } from 'aws-amplify/auth';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
 
@@ -100,6 +101,23 @@ export default function RegisterContent() {
     setLoading(true);
     setError(null);
     try {
+      if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
+        try {
+          await signUp({
+            username: email,
+            password,
+            options: {
+              userAttributes: {
+                email,
+                name,
+              }
+            }
+          });
+        } catch (authErr: any) {
+          console.warn("Cognito sign up error, trying legacy", authErr);
+        }
+      }
+
       const { ok, error: apiError } = await apiJson("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({ email, password, name, language: "es" }),
@@ -129,6 +147,18 @@ export default function RegisterContent() {
     setError(null);
 
     try {
+        if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
+            try {
+                const { confirmSignUp } = await import('aws-amplify/auth');
+                await confirmSignUp({ username: email, confirmationCode: code });
+            } catch (authErr: any) {
+                console.warn("Cognito confirmSignUp error", authErr);
+                setError(authErr?.message || tRegister('step4.invalidCode'));
+                setLoading(false);
+                return;
+            }
+        }
+
         const { ok, error: apiError } = await apiJson("/api/auth/verify", {
             method: "POST",
             body: JSON.stringify({ email, code }),
@@ -138,7 +168,6 @@ export default function RegisterContent() {
             setError(apiError || tRegister('step4.invalidCode'));
             setLoading(false);
         } else {
-            // Success! Move to Upsell Step
             setLoading(false);
             setStep(5);
             setTimeout(() => {
