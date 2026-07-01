@@ -51,16 +51,13 @@ function VerifyForm() {
     try {
       if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
         try {
-          const { isSignUpComplete } = await confirmSignUp({
-            username: email,
-            confirmationCode: clean
-          });
-          if (isSignUpComplete) {
-            router.push("/login");
-            return;
-          }
+          await confirmSignUp({ username: email, confirmationCode: clean });
         } catch (authError: any) {
-          console.warn("Cognito verification error", authError);
+          const isAlreadyConfirmed = authError?.name === 'NotAuthorizedException'
+              || authError?.message?.includes('CONFIRMED');
+          if (!isAlreadyConfirmed) {
+            console.warn("Cognito verification error", authError);
+          }
         }
       }
 
@@ -72,7 +69,7 @@ function VerifyForm() {
         setError(error || t('errors.invalidCode'));
       } else {
         if (data?.token) setFallbackToken(data.token);
-        router.push("/pricing");
+        router.push("/login");
       }
     } catch (e) {
       setError(t('errors.invalidCode'));

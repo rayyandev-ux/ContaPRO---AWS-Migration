@@ -54,7 +54,9 @@ export default function LoginContent() {
       // 1. Intentar iniciar sesión con AWS Cognito (Amplify)
       if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
         try {
-          const { isSignedIn, nextStep } = await signIn({
+          const { signOut } = await import('aws-amplify/auth');
+          try { await signOut(); } catch {}
+          const { isSignedIn } = await signIn({
             username: email,
             password: password,
           });
@@ -64,8 +66,6 @@ export default function LoginContent() {
           }
         } catch (authError: any) {
           console.warn("Amplify SignIn Error", authError);
-          // Si el usuario no existe en Cognito o da error, hacemos un fallback a nuestro backend (Legacy)
-          // El backend puede tener la lógica de migrarlo (Smart Merge) o usar cookies legacy
         }
       }
 

@@ -148,15 +148,24 @@ export default function RegisterContent() {
 
     try {
         if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
+            const { confirmSignUp, signIn } = await import('aws-amplify/auth');
             try {
-                const { confirmSignUp, signIn } = await import('aws-amplify/auth');
                 await confirmSignUp({ username: email, confirmationCode: code });
-                await signIn({ username: email, password });
             } catch (authErr: any) {
-                console.warn("Cognito confirmSignUp/signIn error", authErr);
-                setError(authErr?.message || tRegister('step4.invalidCode'));
-                setLoading(false);
-                return;
+                const isAlreadyConfirmed = authErr?.name === 'NotAuthorizedException'
+                    || authErr?.message?.includes('CONFIRMED');
+                if (!isAlreadyConfirmed) {
+                    setError(authErr?.message || tRegister('step4.invalidCode'));
+                    setLoading(false);
+                    return;
+                }
+            }
+            try {
+                const { signOut } = await import('aws-amplify/auth');
+                try { await signOut(); } catch {}
+                await signIn({ username: email, password });
+            } catch (signInErr: any) {
+                console.warn("Cognito signIn after verify", signInErr);
             }
         }
 

@@ -234,7 +234,15 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!parse.success) return res.badRequest('Datos inválidos');
     const { email, code } = parse.data;
     const user = await app.prisma.user.findUnique({ where: { email } });
-    if (!user || user.emailVerified !== false) return res.badRequest('Estado inválido');
+    if (!user) return res.badRequest('Estado inválido');
+
+    if (user.emailVerified) {
+      const profile = await getOrCreateDefaultProfile(user.id, user.name || undefined);
+      const token = app.jwt.sign({ sub: user.id, userId: user.id, profileId: profile.id, type: 'session' }, { expiresIn: '7d' });
+      const baseOpts = getCookieOpts(req);
+      res.setCookie('session', token, { ...baseOpts, maxAge: 7 * 24 * 60 * 60 });
+      return res.send({ ok: true, token });
+    }
 
     if (config.cognitoUserPoolId) {
       // Cognito ya verificó el código via confirmSignUp en el frontend
