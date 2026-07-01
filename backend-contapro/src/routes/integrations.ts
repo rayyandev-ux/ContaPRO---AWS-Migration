@@ -254,7 +254,7 @@ Estoy aqu铆 para ayudarte a gestionar tus finanzas de manera inteligente. 馃鉁
   // ========================
   app.get('/google/connect', { schema: { summary: 'Iniciar conexi贸n con Gmail' } }, async (req, res) => {
     try {
-        const token = req.cookies.session;
+        const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session || (req.query as any).token;
         if (!token) return res.redirect(`${config.frontendUrl}/integrations?error=unauthorized`);
         const decoded = app.jwt.verify(token) as { sub: string };
         const user = await app.prisma.user.findUnique({ where: { id: decoded.sub } });
@@ -322,10 +322,9 @@ Estoy aqu铆 para ayudarte a gestionar tus finanzas de manera inteligente. 馃鉁
     // Nota: Como es un callback cross-site, aseg煤rate de que SameSite=None o Lax permita la cookie.
     // Si no llega cookie, podr铆amos pasar un 'state' con el userId encriptado.
     
-    // Intentar leer cookie session
     let userId: string | undefined;
     try {
-        const session = req.cookies.session;
+        const session = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session || (req.query as any).token;
         if (session) {
             const decoded = app.jwt.verify(session) as { sub: string };
             userId = decoded.sub;
@@ -333,7 +332,6 @@ Estoy aqu铆 para ayudarte a gestionar tus finanzas de manera inteligente. 馃鉁
     } catch {}
 
     if (!userId) {
-        // Fallback: Si no hay sesi贸n, no podemos vincular. Redirigir a error en frontend.
         return res.redirect(`${config.frontendUrl}/integrations?error=session_expired`);
     }
 
@@ -632,7 +630,7 @@ Recuerda que puedes gestionar los filtros en la secci贸n de Integraciones.`;
   // ========================
   app.get('/outlook/connect', { schema: { summary: 'Iniciar conexi贸n con Outlook' } }, async (req, res) => {
     try {
-        const token = req.cookies.session;
+        const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session || (req.query as any).token;
         if (!token) return res.redirect(`${config.frontendUrl}/integrations?error=unauthorized`);
         const decoded = app.jwt.verify(token) as { sub: string };
         const user = await app.prisma.user.findUnique({ where: { id: decoded.sub } });
@@ -684,10 +682,9 @@ Recuerda que puedes gestionar los filtros en la secci贸n de Integraciones.`;
         return res.redirect(`${config.frontendUrl}/integrations?error=auth_failed_token`);
     }
 
-    // 2. Identificar usuario (la cookie de sesi贸n debe estar presente)
     let userId: string | undefined;
     try {
-        const session = req.cookies.session;
+        const session = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session || (req.query as any).token;
         if (session) {
             const decoded = app.jwt.verify(session) as { sub: string };
             userId = decoded.sub;

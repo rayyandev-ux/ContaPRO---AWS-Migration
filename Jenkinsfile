@@ -385,10 +385,25 @@ EOFN
                                     --output text)
                             fi
 
+                            # --- Variables de CloudFront para links internos ---
+                            CF_DOMAIN=$(aws cloudfront list-distributions --query \
+                                "DistributionList.Items[?Origins.Items[?Id=='S3-${FRONTEND_BUCKET}']].DomainName | [0]" \
+                                --output text --region us-east-1)
+                            if [ -n "${CF_DOMAIN}" ] && [ "${CF_DOMAIN}" != "None" ]; then
+                                export NEXT_PUBLIC_LANDING_HOST="https://${CF_DOMAIN}"
+                                export NEXT_PUBLIC_APP_HOST="https://${CF_DOMAIN}"
+                            fi
+
+                            # --- Analytics (PostHog) ---
+                            export NEXT_PUBLIC_POSTHOG_KEY="phc_nqpUSxcabs7dS8JHWMfwMIBlmgIh4w2fObQGaPTQBN5"
+                            export NEXT_PUBLIC_POSTHOG_HOST="https://us.i.posthog.com"
+
                             echo "NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE}"
                             echo "NEXT_PUBLIC_COGNITO_USER_POOL_ID=${NEXT_PUBLIC_COGNITO_USER_POOL_ID}"
                             echo "NEXT_PUBLIC_COGNITO_CLIENT_ID=${NEXT_PUBLIC_COGNITO_CLIENT_ID}"
                             echo "NEXT_PUBLIC_COGNITO_REGION=${NEXT_PUBLIC_COGNITO_REGION}"
+                            echo "NEXT_PUBLIC_LANDING_HOST=${NEXT_PUBLIC_LANDING_HOST}"
+                            echo "NEXT_PUBLIC_APP_HOST=${NEXT_PUBLIC_APP_HOST}"
 
                             # --- Build ---
                             pnpm install --frozen-lockfile

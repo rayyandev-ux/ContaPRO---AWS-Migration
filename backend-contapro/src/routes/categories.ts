@@ -2,39 +2,22 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { sanitizeText, fixUtf8Mojibake } from '../utils/format.js';
 import { publishEvent } from '../services/realtime.js';
+import { requireAuth } from '../utils/auth.js';
 
 
 export const categoriesRoutes: FastifyPluginAsync = async (app) => {
   const CreateBody = z.object({ name: z.string().min(2) });
 
-  function requireAuth(req: any, res: any): { userId: string, profileId: string } | null {
-    const token = req.cookies.session;
-    if (!token) {
-      res.unauthorized('No autenticado');
-      return null;
-    }
-    try {
-      const payload = app.jwt.verify(token) as { sub: string; profileId?: string };
-      if (!payload.profileId) {
-        res.unauthorized('Sesión antigua. Por favor inicie sesión nuevamente.');
-        return null;
-      }
-      return { userId: payload.sub, profileId: payload.profileId };
-    } catch {
-      res.unauthorized('Token inválido');
-      return null;
-    }
-  }
-
   app.get('/', { schema: { summary: 'List categories (global + user)' } }, async (req, res) => {
-    const auth = (() => {
+    // Auth is optional for listing categories — returns global ones if not authenticated
+    const auth = await (async () => {
+      const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session;
+      if (!token) return null;
       try {
-        const token = req.cookies.session;
-        if (!token) return undefined;
         const payload = app.jwt.verify(token) as { sub: string; profileId?: string };
-        if (!payload.profileId) return undefined;
+        if (!payload.profileId) return null;
         return { userId: payload.sub, profileId: payload.profileId };
-      } catch { return undefined; }
+      } catch { return null; }
     })();
     
     const where: any = auth ? { OR: [ { userId: null }, { userId: auth.userId, profileId: auth.profileId } ] } : { userId: null };
@@ -53,7 +36,7 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post('/', { schema: { summary: 'Create category (scoped to user)' } }, async (req, res) => {
-    const auth = await requireAuth(req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const parse = CreateBody.safeParse(req.body);
@@ -75,7 +58,7 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.delete('/:id', { schema: { summary: 'Delete user category' } }, async (req, res) => {
-    const auth = await requireAuth(req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const id = (req.params as any).id as string;
@@ -93,7 +76,7 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.put('/:id', { schema: { summary: 'Update user category' } }, async (req, res) => {
-    const auth = await requireAuth(req, res);
+    const auth = await requireAuth(app, req, res);
     if (!auth) return;
     const { userId, profileId } = auth;
     const id = (req.params as any).id as string;

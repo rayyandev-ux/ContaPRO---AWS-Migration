@@ -1,24 +1,15 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { getCookieOpts } from '../utils/auth.js';
+import { requireAuth } from '../utils/auth.js';
 
 export const adminRoutes: FastifyPluginAsync = async (app) => {
   // Middleware to ensure admin
   app.addHook('preHandler', async (req, res) => {
-    const token = req.cookies.session;
-    if (!token) {
-      res.clearCookie('session', getCookieOpts(req));
-      return res.unauthorized('No autenticado');
-    }
-    try {
-      const payload = app.jwt.verify(token) as { sub: string };
-      const user = await app.prisma.user.findUnique({ where: { id: payload.sub } });
-      if (!user || user.role !== 'ADMIN') return res.forbidden('Requiere permisos de administrador');
-      (req as any).user = user;
-    } catch {
-      res.clearCookie('session', getCookieOpts(req));
-      return res.unauthorized('Token inválido');
-    }
+    const auth = await requireAuth(app, req, res);
+    if (!auth) return;
+    const user = await app.prisma.user.findUnique({ where: { id: auth.userId } });
+    if (!user || user.role !== 'ADMIN') return res.forbidden('Requiere permisos de administrador');
+    (req as any).user = user;
   });
 
   // KPI Stats for Dashboard

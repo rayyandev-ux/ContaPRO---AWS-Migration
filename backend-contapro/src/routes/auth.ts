@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from '../services/hash.js';
 import { sendVerificationEmail, sendPasswordResetEmail, generateCode } from '../services/email.js';
 import { config } from '../config.js';
 import { getCookieOpts, requireAuth } from '../utils/auth.js';
+import { getCognitoVerifier } from '../services/aws.js';
 
 import { generateSessionToken, verifyMagicToken } from '../utils/jwt.js';
 import { calculateProfileLimits } from '../services/profile-limits.js';
@@ -331,21 +332,47 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/me', { schema: { summary: 'Get current user' } }, async (req, res) => {
-    const token = req.cookies.session;
+    let token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session;
     if (!token) {
       res.clearCookie('session', getCookieOpts(req));
       return res.unauthorized('No autenticado');
     }
     try {
-      const payload = app.jwt.verify(token) as { sub: string, profileId?: string };                                                                                                                                                         
+      let userId: string | undefined;
+      let profileId: string | undefined;
+
+      const cognitoVerifier = getCognitoVerifier();
+      if (cognitoVerifier) {
+        try {
+          const cognitoPayload = await cognitoVerifier.verify(token);
+          const email = (cognitoPayload as any).email;
+          if (email) {
+            const dbUser = await app.prisma.user.findUnique({ where: { email }, select: { id: true } });
+            if (dbUser) {
+              userId = dbUser.id;
+              const defaultProfile = await app.prisma.profile.findFirst({ where: { userId: dbUser.id, isDefault: true }, select: { id: true } });
+              profileId = defaultProfile?.id;
+            }
+          }
+        } catch {
+          // Not a Cognito token, fall back to local JWT
+        }
+      }
+
+      if (!userId) {
+        const payload = app.jwt.verify(token) as { sub: string, profileId?: string };
+        userId = payload.sub;
+        profileId = payload.profileId;
+      }
+
       const user = await app.prisma.user.findUnique({
-         where: { id: payload.sub },
-         select: { 
-           id: true, email: true, name: true, role: true, plan: true, emailVerified: true, 
-           trialEnds: true, planExpires: true, preferredCurrency: true, dateFormat: true, 
-           tutorialSeen: true, whatsappPhone: true, phoneNumber: true, birthDate: true, 
-           language: true, antExpenseLimit: true, antExpenseStreakAlert: true, 
-           antExpenseCountAlert: true, antExpenseEnabled: true, notifyEmailExpenseWhatsApp: true, 
+         where: { id: userId },
+         select: {
+           id: true, email: true, name: true, role: true, plan: true, emailVerified: true,
+           trialEnds: true, planExpires: true, preferredCurrency: true, dateFormat: true,
+           tutorialSeen: true, whatsappPhone: true, phoneNumber: true, birthDate: true,
+           language: true, antExpenseLimit: true, antExpenseStreakAlert: true,
+           antExpenseCountAlert: true, antExpenseEnabled: true, notifyEmailExpenseWhatsApp: true,
            notifyEmailExpenseTelegram: true, reportFrequency: true, extraEmailSlots: true,
            stripeCustomerId: true, extraProfileSlots: true,
            profiles: {
@@ -353,12 +380,12 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
            }
          },
       });
-      if (!user) return res.unauthorized('Usuario no encontrado');                                                                          
+      if (!user) return res.unauthorized('Usuario no encontrado');
 
       const { profiles, ...userData } = user;
       const limits = await calculateProfileLimits(user.id, app.prisma, user);
-      
-      let currentProfileId = payload.profileId;
+
+      let currentProfileId = profileId;
       if (currentProfileId && !profiles.some(p => p.id === currentProfileId)) {
           currentProfileId = undefined;
       }
@@ -384,42 +411,33 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
   const SwitchProfileBody = z.object({ profileId: z.string() });
   app.post('/switch-profile', { schema: { summary: 'Switch active profile' } }, async (req, res) => {
-    const token = req.cookies.session;
-    if (!token) return res.unauthorized('No autenticado');
-    try {
-      const payload = app.jwt.verify(token) as { sub: string };
-      const userId = payload.sub;
-      
-      const parse = SwitchProfileBody.safeParse(req.body);
-      if (!parse.success) return res.badRequest('ID de perfil inválido');
-      const { profileId } = parse.data;
+    const auth = await requireAuth(app, req, res);
+    if (!auth) return;
+    const userId = auth.userId;
 
-      const profile = await app.prisma.profile.findFirst({ where: { id: profileId, userId } });
-      if (!profile) return res.forbidden('Perfil no encontrado o no autorizado');
+    const parse = SwitchProfileBody.safeParse(req.body);
+    if (!parse.success) return res.badRequest('ID de perfil inválido');
+    const { profileId } = parse.data;
 
-      // Validar si el perfil está dentro del límite permitido
-      const limits = await calculateProfileLimits(userId, app.prisma);
-      
-      // Obtener todos los perfiles ordenados por fecha de creación
-      const allProfiles = await app.prisma.profile.findMany({
-          where: { userId },
-          orderBy: { createdAt: 'asc' },
-          select: { id: true }
-      });
-      
-      const profileIndex = allProfiles.findIndex(p => p.id === profileId);
-      if (profileIndex >= limits.max) {
-          return res.forbidden('Este perfil está bloqueado porque excediste el límite de perfiles de tu plan. Mejora tu plan o adquiere un slot extra para acceder.');
-      }
+    const profile = await app.prisma.profile.findFirst({ where: { id: profileId, userId } });
+    if (!profile) return res.forbidden('Perfil no encontrado o no autorizado');
 
-      const newToken = app.jwt.sign({ sub: userId, userId, profileId: profile.id, type: 'session' }, { expiresIn: '7d' }); // Default to 7d or keep original expiration? 7d is fine for switch.
-      res.setCookie('session', newToken, getCookieOpts(req));
-      return res.send({ ok: true, currentProfileId: profile.id });
-    } catch (err: any) {
-      app.log.error(err, 'Token verification failed in /switch-profile');
-      res.clearCookie('session', getCookieOpts(req));
-      return res.unauthorized('Token inválido');
+    const limits = await calculateProfileLimits(userId, app.prisma);
+
+    const allProfiles = await app.prisma.profile.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true }
+    });
+
+    const profileIndex = allProfiles.findIndex(p => p.id === profileId);
+    if (profileIndex >= limits.max) {
+        return res.forbidden('Este perfil está bloqueado porque excediste el límite de perfiles de tu plan. Mejora tu plan o adquiere un slot extra para acceder.');
     }
+
+    const newToken = app.jwt.sign({ sub: userId, userId, profileId: profile.id, type: 'session' }, { expiresIn: '7d' });
+    res.setCookie('session', newToken, getCookieOpts(req));
+    return res.send({ ok: true, currentProfileId: profile.id });
   });
 
   const PrefsBody = z.object({
@@ -443,17 +461,9 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     onboardingData: z.any().optional(),
   });
   app.patch('/preferences', { schema: { summary: 'Actualizar preferencias de usuario' } }, async (req, res) => {
-    const token = req.cookies.session;
-    if (!token) return res.unauthorized('No autenticado');
-    let userId: string;
-    try {
-      const payload = app.jwt.verify(token) as { sub: string };
-      userId = payload.sub;
-    } catch (err: any) { 
-      app.log.error(err, 'Token verification failed in /preferences');
-      res.clearCookie('session', getCookieOpts(req));
-      return res.unauthorized('Token inválido'); 
-    }
+    const auth = await requireAuth(app, req, res);
+    if (!auth) return;
+    const userId = auth.userId;
     const parse = PrefsBody.safeParse(req.body);
     if (!parse.success) {
       console.log('Validation failed for payload:', req.body);
