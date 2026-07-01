@@ -19,6 +19,30 @@ export function clearApiCache() {
   API_CACHE.clear();
 }
 
+let _fallbackToken: string | null = null;
+
+export function setFallbackToken(token: string) {
+  _fallbackToken = token;
+  if (typeof window !== 'undefined') {
+    try { sessionStorage.setItem('__contapro_token', token); } catch {}
+  }
+}
+
+export function clearFallbackToken() {
+  _fallbackToken = null;
+  if (typeof window !== 'undefined') {
+    try { sessionStorage.removeItem('__contapro_token'); } catch {}
+  }
+}
+
+function getFallbackToken(): string | null {
+  if (_fallbackToken) return _fallbackToken;
+  if (typeof window !== 'undefined') {
+    try { return sessionStorage.getItem('__contapro_token'); } catch {}
+  }
+  return null;
+}
+
 export function invalidateApiCache(pathStartsWith: string) {
   const prefix = pathStartsWith;
   for (const key of Array.from(API_CACHE.keys())) {
@@ -52,8 +76,10 @@ export async function apiJson<T = any>(path: string, init: RequestInit = {}): Pr
       if (token) {
         authHeader = { "Authorization": `Bearer ${token.toString()}` };
       }
-    } catch (e) {
-      // Ignorar error si no hay sesión (quizás es una ruta pública)
+    } catch (e) {}
+    if (!('Authorization' in authHeader)) {
+      const fb = getFallbackToken();
+      if (fb) authHeader = { "Authorization": `Bearer ${fb}` };
     }
 
     const res = await fetch(url, {
@@ -105,6 +131,10 @@ export async function apiMultipart<T = any>(path: string, formData: FormData): P
         authHeader = { "Authorization": `Bearer ${token.toString()}` };
       }
     } catch (e) {}
+    if (!('Authorization' in authHeader)) {
+      const fb = getFallbackToken();
+      if (fb) authHeader = { "Authorization": `Bearer ${fb}` };
+    }
 
     const res = await fetch(url, {
       method: "POST",

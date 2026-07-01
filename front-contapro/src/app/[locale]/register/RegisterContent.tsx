@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, Link } from "@/i18n/routing";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { apiJson } from "@/lib/api";
+import { apiJson, setFallbackToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -160,7 +160,7 @@ export default function RegisterContent() {
             }
         }
 
-        const { ok, error: apiError } = await apiJson("/api/auth/verify", {
+        const { ok, error: apiError, data } = await apiJson("/api/auth/verify", {
             method: "POST",
             body: JSON.stringify({ email, code }),
         });
@@ -169,6 +169,7 @@ export default function RegisterContent() {
             setError(apiError || tRegister('step4.invalidCode'));
             setLoading(false);
         } else {
+            if (data?.token) setFallbackToken(data.token);
             setLoading(false);
             setStep(5);
             setTimeout(() => {

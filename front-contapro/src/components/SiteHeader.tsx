@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import CardNav, { CardNavItem } from './CardNav';
 import LanguageSwitcher from './LanguageSwitcher';
+import { clearFallbackToken, clearApiCache } from '@/lib/api';
 
 export default function SiteHeader() {
   const t = useTranslations('SiteHeader');
@@ -15,6 +16,8 @@ export default function SiteHeader() {
   const [headerScrolled, setHeaderScrolled] = useState(false);
 
   const handleLogout = async () => {
+    clearFallbackToken();
+    clearApiCache();
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/';
   };

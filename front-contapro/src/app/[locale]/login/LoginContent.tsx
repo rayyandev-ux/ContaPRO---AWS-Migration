@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "@/i18n/routing";
 import { Link } from "@/i18n/routing";
 import Image from "next/image";
-import { apiJson } from "@/lib/api";
+import { apiJson, setFallbackToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,13 +70,14 @@ export default function LoginContent() {
       }
 
       // 2. Fallback a nuestro propio backend (Legacy / Migración on-the-fly)
-      const { ok, error } = await apiJson("/api/auth/login", {
+      const { ok, error, data } = await apiJson("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password, remember: !!form.get("remember") }),
       });
       if (!ok) {
         setError(error || t('loginError'));
       } else {
+        if (data?.token) setFallbackToken(data.token);
         try { (window as any).postMessage({ t: 'contapro:mutated' }, '*'); } catch {}
         router.push('/dashboard');
       }

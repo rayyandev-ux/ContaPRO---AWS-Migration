@@ -1,5 +1,5 @@
 "use client";
-import { BASE } from "@/lib/api";
+import { BASE, setFallbackToken } from "@/lib/api";
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -64,6 +64,7 @@ function ResetForm() {
       if (!res.ok || d?.ok !== true) {
         setError(d?.error || "No se pudo restablecer la contraseña");
       } else {
+        if (d?.token) setFallbackToken(d.token);
         router.push("/dashboard");
       }
     } catch {

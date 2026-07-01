@@ -253,7 +253,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const token = app.jwt.sign({ sub: updated.id, userId: updated.id, profileId: profile.id, type: 'session' }, { expiresIn: '7d' });
     const baseOpts = getCookieOpts(req);
     res.setCookie('session', token, { ...baseOpts, maxAge: 7 * 24 * 60 * 60 });
-    return res.send({ ok: true });
+    return res.send({ ok: true, token });
   });
 
   // Reenviar código
@@ -305,10 +305,11 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (user.resetCode !== code) return res.badRequest('Código inválido');
     if (user.resetExpires.getTime() < now) return res.badRequest('Código expirado');
     const hashed = await hashPassword(password);
-    const updated = await app.prisma.user.update({ where: { id: user.id }, data: { password: hashed, resetCode: null, resetExpires: null }, select: { id: true } });
-    const token = app.jwt.sign({ sub: updated.id }, { expiresIn: '7d' });
+    const updated = await app.prisma.user.update({ where: { id: user.id }, data: { password: hashed, resetCode: null, resetExpires: null }, select: { id: true, name: true } });
+    const profile = await getOrCreateDefaultProfile(updated.id, updated.name || undefined);
+    const token = app.jwt.sign({ sub: updated.id, userId: updated.id, profileId: profile.id, type: 'session' }, { expiresIn: '7d' });
     res.setCookie('session', token, getCookieOpts(req));
-    return res.send({ ok: true });
+    return res.send({ ok: true, token });
   });
 
   // DEPRECATED: This endpoint is no longer used. Please use the checkout flow.

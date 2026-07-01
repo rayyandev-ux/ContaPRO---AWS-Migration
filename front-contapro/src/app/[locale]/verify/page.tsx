@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter, Link } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
-import { apiJson } from "@/lib/api";
+import { apiJson, setFallbackToken } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,13 +64,14 @@ function VerifyForm() {
         }
       }
 
-      const { ok, error } = await apiJson("/api/auth/verify", {
+      const { ok, error, data } = await apiJson("/api/auth/verify", {
         method: "POST",
         body: JSON.stringify({ email, code: clean }),
       });
       if (!ok) {
         setError(error || t('errors.invalidCode'));
       } else {
+        if (data?.token) setFallbackToken(data.token);
         router.push("/pricing");
       }
     } catch (e) {
