@@ -1,5 +1,5 @@
 "use client";
-import { BASE } from "@/lib/api";
+import { BASE, clearToken, clearApiCache } from "@/lib/api";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -10,7 +10,9 @@ export default function LogoutButton({ className }: { className?: string }) {
     if (loading) return;
     setLoading(true);
     try {
-      await fetch(BASE + "/api/logout", { method: "POST" });
+      await fetch(BASE + "/api/logout", { method: "POST" }).catch(() => {});
+      clearToken();
+      clearApiCache();
       window.location.href = "/login";
     } catch (e) {
       setLoading(false);

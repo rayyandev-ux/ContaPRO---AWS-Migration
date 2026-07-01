@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { clearToken, clearApiCache } from '@/lib/api';
 import CardNav, { CardNavItem } from './CardNav';
 import LanguageSwitcher from './LanguageSwitcher';
 
@@ -15,7 +16,9 @@ export default function SiteHeader() {
   const [headerScrolled, setHeaderScrolled] = useState(false);
 
   const handleLogout = async () => {
-    await fetch('/api/logout', { method: 'POST' });
+    await fetch('/api/logout', { method: 'POST' }).catch(() => {});
+    clearToken();
+    clearApiCache();
     window.location.href = '/';
   };
 
