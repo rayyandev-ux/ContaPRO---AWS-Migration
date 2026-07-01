@@ -180,11 +180,10 @@ export default function PricingContent() {
   const [loading, setLoading] = useState<string | null>(null);
   const [exchangeRate, setExchangeRate] = useState(1);
   const [localCurrency, setLocalCurrency] = useState<string>('PEN'); // Default a SOLES
-  
+
   // Coupon state
   const [couponCode, setCouponCode] = useState("");
   const [redeeming, setRedeeming] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<'FLOW' | 'STRIPE'>('STRIPE');
 
   useEffect(() => {
     (async () => {
@@ -193,11 +192,6 @@ export default function PricingContent() {
         if (me.ok && me.data) {
              setLoggedIn(true);
              setUser(me.data);
-             if (me.data.paymentProvider === 'STRIPE') {
-               setSelectedProvider('STRIPE');
-             } else {
-               setSelectedProvider('STRIPE'); // Temporarily force STRIPE due to Flow outage
-             }
         } else {
              setLoggedIn(false);
              setUser(null);
@@ -374,59 +368,11 @@ export default function PricingContent() {
 
     setLoading(plan);
 
-    // Bifurcación por proveedor
-    const providerToUse = selectedProvider;
-
-    if (providerToUse === 'FLOW') {
-      try {
-        const res = await apiJson<{ url?: string; subscriptionId?: string }>("/api/payments/flow/checkout", {
-          method: "POST",
-          body: JSON.stringify({ period: plan }),
-        });
-
-        if (res.ok) {
-          if (res.data?.url) {
-            window.location.href = res.data.url;
-            return;
-          }
-          if (res.data?.subscriptionId) {
-            window.location.href = '/billing?action=plan_updated';
-            return;
-          }
-        } else {
-          setLoading(null);
-          toast.error(res.error || tSection('paymentError'));
-        }
-      } catch (e) {
-        setLoading(null);
-        toast.error(tSection('paymentError'));
-      }
-      return;
-    }
-
-    // Intentar compra in-app si tiene tarjeta (STRIPE)
-    try {
-      const res = await apiJson<{ url?: string; subscriptionId?: string; paymentIntentId?: string }>("/api/payments/buy-extra", { // Usamos buy-extra como genérico o creamos uno para planes
-        method: "POST",
-        body: JSON.stringify({ plan, type: 'PLAN' }), // Necesitaremos actualizar el backend para manejar PLAN
-      });
-
-      if (res.ok) {
-        if (res.data?.url) {
-          window.location.href = res.data.url;
-          return;
-        }
-        window.location.href = '/billing?action=plan_updated';
-        return;
-      }
-    } catch (e) {}
-
-    // Fallback a Checkout tradicional si no tiene tarjeta o falla in-app
-    const r = await apiJson<{ url?: string; redirectUrl?: string; orderId?: string }>("/api/payments/checkout", { 
-      method: 'POST', 
-      body: JSON.stringify({ plan }) 
+    const r = await apiJson<{ url?: string; redirectUrl?: string }>("/api/payments/checkout", {
+      method: 'POST',
+      body: JSON.stringify({ plan })
     });
-    
+
     if (!r.ok && (r.error === 'No autenticado' || r.error === 'Token inválido')) {
        window.location.href = '/register';
        return;
@@ -560,37 +506,6 @@ export default function PricingContent() {
                   </div>
                 )}
 
-                {!isPremium && (
-                  <div className="flex flex-col items-center justify-center mt-8 p-4 bg-white/5 rounded-2xl border border-white/10 max-w-sm mx-auto backdrop-blur-sm">
-                    <p className="text-sm text-zinc-300 mb-3 font-medium">¿Dónde estás ubicado?</p>
-                    <div className="flex flex-col gap-2 bg-black/50 p-1 rounded-xl border border-white/10 w-full">
-                      <button
-                        onClick={() => setSelectedProvider('FLOW')}
-                        disabled={true}
-                        className={cn(
-                          "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 w-full opacity-50 cursor-not-allowed",
-                          selectedProvider === 'FLOW' ? "bg-violet-500/20 text-violet-300 border border-violet-500/30" : "text-zinc-400"
-                        )}
-                      >
-                         (Yape, Plin, Tarjeta) - Temporalmente no disponible
-                      </button>
-                      <button
-                        onClick={() => setSelectedProvider('STRIPE')}
-                        className={cn(
-                          "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 w-full",
-                          selectedProvider === 'STRIPE' ? "bg-violet-500/20 text-violet-300 border border-violet-500/30" : "text-zinc-400 hover:text-zinc-200"
-                        )}
-                      >
-                        🌍 Otro país (Stripe)
-                      </button>
-                    </div>
-                    {selectedProvider === 'FLOW' && (
-                       <p className="text-xs text-amber-400/80 mt-3 text-center px-2">
-                         Nota: Los pagos con Yape, Plin o PagoEfectivo no son recurrentes. Deberás renovar manualmente cada mes/año.
-                       </p>
-                    )}
-                  </div>
-                )}
             </div>
 
             {/* Pricing Grid - Updated for better alignment */}
@@ -668,33 +583,24 @@ export default function PricingContent() {
           description={
             <div className="space-y-4 text-left">
               <p className="text-sm text-white/60">
-                Se realizará un cargo a tu método de pago registrado o serás redirigido a Stripe para completar el pago de <strong className="text-white">S/ {getPlanDetails(selectedPlan).price}</strong>.
+                Estás a punto de activar el plan <strong className="text-white">{getPlanDetails(selectedPlan).name}</strong> por <strong className="text-white">S/ {getPlanDetails(selectedPlan).price}</strong>.
               </p>
               <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/40">Frecuencia de cobro:</span>
+                  <span className="text-white/40">Frecuencia:</span>
                   <span className="text-white font-bold capitalize">{getPlanDetails(selectedPlan).interval}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/40">Total a pagar:</span>
+                  <span className="text-white/40">Total:</span>
                   <span className="text-white font-bold">S/ {getPlanDetails(selectedPlan).price}</span>
                 </div>
               </div>
-              <p className="text-[10px] text-white/40 italic leading-relaxed">
-                * Si usas tarjeta, el cobro se realizará de forma automática en los siguientes periodos. Podrás gestionar tu plan o cancelarlo en cualquier momento desde la sección de facturación.
-              </p>
-              
-              {(!user || !user.paymentProvider) && selectedProvider === 'FLOW' && (
-                 <p className="text-[10px] text-amber-400/80 italic leading-relaxed mt-2 border border-amber-500/20 bg-amber-500/10 p-2 rounded-lg">
-                   <strong>Aviso Flow:</strong> Serás redirigido a Flow. Si eliges Yape, Plin o PagoEfectivo, el acceso será por 1 {getPlanDetails(selectedPlan).interval} sin renovación automática. Si deseas renovación automática, debes elegir Tarjeta de Crédito/Débito.
-                 </p>
-              )}
 
               <label className="flex items-start gap-3 mt-4 cursor-pointer group">
                 <div className="mt-0.5">
-                  <input 
-                    type="checkbox" 
-                    className="hidden" 
+                  <input
+                    type="checkbox"
+                    className="hidden"
                     checked={buyTermsAccepted}
                     onChange={(e) => setBuyTermsAccepted(e.target.checked)}
                   />
@@ -703,12 +609,12 @@ export default function PricingContent() {
                   </div>
                 </div>
                 <span className="text-xs text-white/60 group-hover:text-white/80 transition-colors">
-                  Acepto los términos y autorizo el cargo automático.
+                  Acepto los términos de servicio.
                 </span>
               </label>
             </div>
           }
-          confirmText={`Proceder al pago`}
+          confirmText={`Activar plan`}
           cancelText="Cancelar"
           onConfirm={() => {
             setConfirmModalOpen(false);

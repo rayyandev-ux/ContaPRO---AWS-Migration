@@ -5,7 +5,6 @@ export const configRoutes: FastifyPluginAsync = async (app) => {
   app.get('/public', { schema: { summary: 'Get public configuration' } }, async (req, res) => {
     return res.send({
       ok: true,
-      stripePublishableKey: config.stripePublishableKey,
       frontendUrl: config.frontendUrl,
     });
   });

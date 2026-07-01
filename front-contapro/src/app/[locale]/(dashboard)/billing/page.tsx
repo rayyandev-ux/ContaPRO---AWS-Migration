@@ -5,15 +5,13 @@ import { useSearchParams } from "next/navigation";
 import { apiJson } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { 
-  Crown, CreditCard, Loader2, Plus, 
-  Wallet, History, LayoutGrid, Mail, X, RefreshCw,
+import {
+  Crown, Loader2, Plus,
+  History, LayoutGrid, Mail, X, RefreshCw,
   AlertCircle, Check
 } from "lucide-react";
 import { toast } from "sonner";
-import { StripeProvider } from "@/components/StripeProvider";
-import { AddPaymentMethodModal } from "@/components/AddPaymentMethodModal";
-import { PaymentMethodItem, InvoiceRow } from "@/components/BillingComponents";
+import { InvoiceRow } from "@/components/BillingComponents";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
@@ -39,17 +37,13 @@ export default function Page() {
   const [invoices, setInvoices] = useState<any[]>([]);
   
   // UI States
-  const [isAddCardOpen, setIsAddCardOpen] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [loadingCancelId, setLoadingCancelId] = useState<string | null>(null);
 
   // Buy Resource Modal State
   const [buyResourceModal, setBuyResourceModal] = useState<{ isOpen: boolean, type: 'EXTRA_PROFILE' | 'EXTRA_EMAIL' | null }>({ isOpen: false, type: null });
   const [buyTermsAccepted, setBuyTermsAccepted] = useState(false);
-  const [selectedProviderForExtra, setSelectedProviderForExtra] = useState<'FLOW' | 'STRIPE'>('STRIPE');
 
-  // Confirmation States
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const searchParams = useSearchParams();
 
@@ -94,46 +88,27 @@ export default function Page() {
     setLoading(true);
     try {
       const meRes = await apiJson("/api/auth/me", { cache: "no-store" });
-      let provider = 'STRIPE';
       if (meRes.ok) {
         setUser(meRes.data.user);
-        provider = meRes.data.user.paymentProvider || 'STRIPE';
       }
 
-      const prefix = provider === 'FLOW' ? '/api/payments/flow' : '/api/payments';
-
-      const [subRes, methodsRes, invoicesRes] = await Promise.all([
-        apiJson(`${prefix}/subscription`, { cache: "no-store" }),
-        apiJson(`${prefix}/payment-methods`, { cache: "no-store" }),
-        apiJson(provider === 'FLOW' ? `${prefix}/history` : `${prefix}/invoices`, { cache: "no-store" }),
+      const [subRes, historyRes] = await Promise.all([
+        apiJson("/api/payments/subscription", { cache: "no-store" }),
+        apiJson("/api/payments/history", { cache: "no-store" }),
       ]);
 
       if (subRes.ok && subRes.data) {
-        setSubscription(provider === 'FLOW' ? subRes.data : subRes.data.subscription);
-        setExtraSubscriptions(provider === 'FLOW' ? (subRes.data.addons || []) : (subRes.data.extraSubscriptions || []));
+        setSubscription(subRes.data.subscription);
+        setExtraSubscriptions(subRes.data.extraSubscriptions || []);
       } else {
         setSubscription(null);
         setExtraSubscriptions([]);
       }
-      
-      if (methodsRes.ok) setPaymentMethods(provider === 'FLOW' ? methodsRes.data.data : methodsRes.data.items);
-      
-      if (invoicesRes.ok) {
-        if (provider === 'FLOW') {
-          // Mapear historial de Flow para que coincida con lo que espera InvoiceRow
-          const mappedInvoices = invoicesRes.data.map((inv: any) => ({
-            id: inv.id,
-            number: inv.orderId,
-            created: new Date(inv.createdAt).getTime() / 1000,
-            status: inv.status.toLowerCase(),
-            amount_paid: inv.amount * 100, // Stripe expects cents
-            currency: inv.currency,
-            hosted_invoice_url: '#' // Flow doesn't provide a direct invoice url here
-          }));
-          setInvoices(mappedInvoices);
-        } else {
-          setInvoices(invoicesRes.data.items);
-        }
+
+      setPaymentMethods([]);
+
+      if (historyRes.ok) {
+        setInvoices(historyRes.data.items || []);
       }
     } catch (err) {
       setError("Error al cargar datos de facturación");
@@ -162,41 +137,6 @@ export default function Page() {
     }
   }, []);
 
-  const handleSetDefault = async (id: string) => {
-    if (user?.paymentProvider === 'FLOW') return; // Not supported on flow
-    setLoadingAction(id);
-    const res = await apiJson(`/api/payments/payment-methods/${id}/default`, { method: "POST" });
-    if (res.ok) {
-      toast.success("Método predeterminado actualizado");
-      fetchData();
-    } else {
-      toast.error(res.error || "Error al actualizar");
-    }
-    setLoadingAction(null);
-  };
-
-  const handleDeleteMethod = async (id: string) => {
-    setConfirmDeleteId(id);
-  };
-
-  const confirmDelete = async () => {
-    if (!confirmDeleteId) return;
-    const id = confirmDeleteId;
-    setConfirmDeleteId(null);
-    setLoadingAction(id);
-    
-    const prefix = user?.paymentProvider === 'FLOW' ? '/api/payments/flow' : '/api/payments';
-    const res = await apiJson(user?.paymentProvider === 'FLOW' ? `${prefix}/payment-methods/delete` : `${prefix}/payment-methods/${id}/detach`, { method: "POST" });
-    
-    if (res.ok) {
-      toast.success("Tarjeta eliminada");
-      fetchData();
-    } else {
-      toast.error(res.error || "Error al eliminar");
-    }
-    setLoadingAction(null);
-  };
-
   const handleCancelSub = async () => {
     setIsCancelConfirmOpen(true);
   };
@@ -205,10 +145,7 @@ export default function Page() {
     setIsCancelConfirmOpen(false);
     setLoadingAction("cancel");
 
-    const prefix = user?.paymentProvider === 'FLOW' ? '/api/payments/flow' : '/api/payments';
-    let url = user?.paymentProvider === 'FLOW' ? `${prefix}/subscription/cancel` : `${prefix}/subscription/${subscription?.id}/cancel`;
-
-    const res = await apiJson(url, { method: "POST" });
+    const res = await apiJson(`/api/payments/subscription/${subscription?.id}/cancel`, { method: "POST" });
     if (res.ok) {
       toast.success("Suscripción cancelada correctamente");
       fetchData();
@@ -219,17 +156,8 @@ export default function Page() {
   };
 
   const handleResumeSub = async () => {
-    if (paymentMethods.length === 0) {
-      toast.error("Debes añadir una tarjeta para reactivar tu suscripción");
-      setIsAddCardOpen(true);
-      return;
-    }
     setLoadingAction("resume");
-
-    const prefix = user?.paymentProvider === 'FLOW' ? '/api/payments/flow' : '/api/payments';
-    let url = user?.paymentProvider === 'FLOW' ? `${prefix}/subscription/resume` : `${prefix}/subscription/${subscription?.id}/resume`;
-
-    const res = await apiJson(url, { method: "POST" });
+    const res = await apiJson(`/api/payments/subscription/${subscription?.id}/resume`, { method: "POST" });
     if (res.ok) {
       toast.success("Suscripción reactivada correctamente");
       fetchData();
@@ -284,7 +212,6 @@ export default function Page() {
       return;
     }
 
-    setSelectedProviderForExtra('STRIPE');
     setBuyResourceModal({ isOpen: true, type });
     setBuyTermsAccepted(false);
   };
@@ -292,23 +219,16 @@ export default function Page() {
   const handleBuyResource = async () => {
     const { type } = buyResourceModal;
     if (!type) return;
-    
+
     setLoadingAction(type);
     try {
-      const prefix = selectedProviderForExtra === 'FLOW' ? '/api/payments/flow' : '/api/payments';
-      const res = await apiJson(`${prefix}/buy-extra`, {
+      const res = await apiJson("/api/payments/checkout", {
         method: "POST",
-        body: JSON.stringify({ type, plan: isAnnual ? 'ANNUAL' : 'MONTHLY' }),
+        body: JSON.stringify({ plan: type }),
       });
-      
+
       if (res.ok) {
-        if (res.data?.url) {
-          window.location.href = res.data.url;
-          return;
-        }
-        toast.success("Compra confirmada", {
-          description: "Se te enviará un comprobante a tu email en unos instantes."
-        });
+        toast.success("Recurso activado");
         setBuyResourceModal({ isOpen: false, type: null });
         fetchData();
       } else {
@@ -336,7 +256,6 @@ export default function Page() {
   }
 
   return (
-    <StripeProvider>
       <section className="space-y-6 max-w-[1600px] w-full mx-auto px-6 md:px-8 xl:px-12 py-6 md:py-8 lg:py-10">
         <RealtimeRefresh />
         <UpgradePromptDialog open={showUpgradePrompt} onOpenChange={setShowUpgradePrompt} />
@@ -347,16 +266,6 @@ export default function Page() {
               <div>
                 <h1 className="text-5xl md:text-6xl font-playfair font-bold tracking-tight text-white mb-2 italic">Facturación</h1>
                 <p className="text-white/40 text-lg font-medium">Controla tus planes, métodos de pago e historial.</p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                {(!user?.paymentProvider || user?.paymentProvider === 'STRIPE') && (
-                  <Button 
-                    onClick={() => setIsAddCardOpen(true)}
-                    className="rounded-full bg-white text-black font-medium hover:bg-white/90 transition-colors text-sm px-6 h-11 shadow-md"
-                  >
-                    <Plus className="h-4 w-4 mr-2" /> Añadir Tarjeta
-                  </Button>
-                )}
               </div>
             </div>
           </div>
@@ -463,58 +372,6 @@ export default function Page() {
                   </div>
                 </section>
 
-                {/* Sección Wallet */}
-                <section className="space-y-6">
-                  <div className="flex items-center gap-3 px-2">
-                    <Wallet className="h-5 w-5 text-white/40" />
-                    <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/60">Mis Tarjetas</h2>
-                  </div>
-
-                  <div className="space-y-4">
-                    <AnimatePresence mode="popLayout">
-                      {paymentMethods.length > 0 ? (
-                        paymentMethods.map((m) => (
-                          <motion.div 
-                            key={m.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                          >
-                            <PaymentMethodItem 
-                              method={m} 
-                              onSetDefault={handleSetDefault} 
-                              onDelete={handleDeleteMethod} 
-                              loadingAction={loadingAction}
-                            />
-                          </motion.div>
-                        ))
-                      ) : (
-                        <div className="p-12 rounded-[2rem] bg-white/[0.02] border border-white/5 border-dashed flex flex-col items-center justify-center text-center space-y-6">
-                          <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-                            <CreditCard className="h-8 w-8 text-white/10" />
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-sm font-bold text-white/40">Aún no hay métodos de pago</p>
-                            <p className="text-[10px] text-white/20 font-medium uppercase tracking-widest leading-relaxed">
-                              Añade una tarjeta de crédito o débito<br />para gestionar tus planes y recursos.
-                            </p>
-                          </div>
-                          {(!user?.paymentProvider || user?.paymentProvider === 'STRIPE') && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => setIsAddCardOpen(true)}
-                              className="rounded-full bg-white/5 hover:bg-white text-white/60 hover:text-black border border-white/10 transition-all font-bold text-[10px] uppercase tracking-widest px-8 h-10 mt-4"
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Añadir Primera Tarjeta
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </section>
               </div>
 
               {/* Columna Derecha: Capacidad e Historial */}
@@ -704,25 +561,7 @@ export default function Page() {
           </div>
         </div>
 
-        <AddPaymentMethodModal 
-          open={isAddCardOpen} 
-          onOpenChange={setIsAddCardOpen} 
-          onSuccess={fetchData} 
-        />
-
-        <ConfirmDialog 
-          open={!!confirmDeleteId}
-          onOpenChange={(open) => !open && setConfirmDeleteId(null)}
-          title="¿Eliminar Tarjeta?"
-          description="Esta acción desvinculará la tarjeta de tu cuenta. No podrás usarla para futuros pagos hasta que la añadas de nuevo."
-          confirmText="Eliminar"
-          cancelText="Mantener"
-          variant="danger"
-          onConfirm={confirmDelete}
-          loading={loadingAction === confirmDeleteId}
-        />
-
-        <ConfirmDialog 
+        <ConfirmDialog
           open={isCancelConfirmOpen}
           onOpenChange={setIsCancelConfirmOpen}
           title="¿Cancelar Suscripción?"
@@ -747,53 +586,13 @@ export default function Page() {
           description={
             <div className="w-full space-y-4 text-left">
                 <p className="text-sm text-white/60">
-                  Elige tu método de pago y autoriza la compra de <strong className="text-white">S/ {buyResourceModal.type === 'EXTRA_PROFILE' ? profilePrice : emailPrice}</strong>.
-                </p>
-
-              <div className="flex flex-col gap-2 p-2 rounded-xl bg-white/5 border border-white/10">
-                <button
-                  onClick={() => setSelectedProviderForExtra('FLOW')}
-                  disabled={true}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 w-full opacity-50 cursor-not-allowed ${
-                    selectedProviderForExtra === 'FLOW' ? "bg-violet-500/20 text-violet-300 border border-violet-500/30" : "text-zinc-400"
-                  }`}
-                >
-                  🇵🇪 Flow (Yape, Plin, Tarjeta) - Temporalmente no disponible
-                </button>
-                <button
-                  onClick={() => setSelectedProviderForExtra('STRIPE')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 w-full ${
-                    selectedProviderForExtra === 'STRIPE' ? "bg-violet-500/20 text-violet-300 border border-violet-500/30" : "text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  🌍 Stripe (Internacional)
-                </button>
-              </div>
-
-              {selectedProviderForExtra === 'FLOW' && (
-                 <p className="text-[10px] text-amber-400/80 italic leading-relaxed px-2">
-                   Nota: Si usas Yape, Plin o PagoEfectivo en Flow, el acceso solo será por 1 {resourceInterval} y tendrás que renovar manualmente.
-                 </p>
-              )}
-
-              <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2 mt-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/40">Frecuencia de cobro:</span>
-                  <span className="text-white font-bold capitalize">{resourceInterval}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/40">Total a pagar ahora:</span>
-                  <span className="text-white font-bold">S/ {buyResourceModal.type === 'EXTRA_PROFILE' ? profilePrice : emailPrice}</span>
-                </div>
-              </div>
-              <p className="text-[10px] text-white/40 italic leading-relaxed">
-                  * El cobro se realizará de forma recurrente ({resourceInterval}) si usas tarjeta. Podrás cancelar esta suscripción individual en cualquier momento.
+                  Se activará un {buyResourceModal.type === 'EXTRA_PROFILE' ? 'perfil' : 'email'} extra en tu cuenta.
                 </p>
               <label className="flex items-start gap-3 mt-4 cursor-pointer group">
                 <div className="mt-0.5">
-                  <input 
-                    type="checkbox" 
-                    className="hidden" 
+                  <input
+                    type="checkbox"
+                    className="hidden"
                     checked={buyTermsAccepted}
                     onChange={(e) => setBuyTermsAccepted(e.target.checked)}
                   />
@@ -802,22 +601,17 @@ export default function Page() {
                   </div>
                 </div>
                 <span className="text-xs text-white/60 group-hover:text-white/80 transition-colors">
-                  Acepto los términos y autorizo la compra.
+                  Confirmo la activación.
                 </span>
               </label>
-
-              {selectedProviderForExtra === 'STRIPE' && paymentMethods.length === 0 && (
-                 <p className="text-xs text-red-400 font-medium mt-2">Debes añadir una tarjeta primero para usar Stripe.</p>
-              )}
             </div>
           }
-          confirmText={`Pagar S/ ${buyResourceModal.type === 'EXTRA_PROFILE' ? profilePrice : emailPrice}`}
+          confirmText="Activar"
           cancelText="Cancelar"
           onConfirm={handleBuyResource}
           loading={loadingAction === buyResourceModal.type}
-          disabled={!buyTermsAccepted || (selectedProviderForExtra === 'STRIPE' && paymentMethods.length === 0)}
+          disabled={!buyTermsAccepted}
         />
       </section>
-    </StripeProvider>
   );
 }

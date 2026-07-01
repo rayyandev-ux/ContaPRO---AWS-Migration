@@ -752,7 +752,7 @@ function ProIncentive({ onBuy, onSkip, loading }: { onBuy: (plan: string) => voi
               </div>
               <h4 className="text-xl font-bold text-white mb-2">Confirmar Suscripción</h4>
               <p className="text-sm text-zinc-300 mb-6 leading-relaxed">
-                Estás a un paso de ser PRO. Serás redirigido a Stripe para procesar tu pago de <strong className="text-white text-base">{confirmPlan === 'MONTHLY' ? 'S/ 18' : 'S/ 120'}</strong> de forma segura.
+                Estás a un paso de ser PRO. Tu plan <strong className="text-white text-base">{confirmPlan === 'MONTHLY' ? 'Mensual (S/ 18)' : 'Anual (S/ 120)'}</strong> se activará de inmediato.
               </p>
               
               <div className="flex flex-col gap-3">
@@ -761,7 +761,7 @@ function ProIncentive({ onBuy, onSkip, loading }: { onBuy: (plan: string) => voi
                   disabled={loading}
                   className="w-full bg-violet-600 hover:bg-violet-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:shadow-[0_0_30px_rgba(124,58,237,0.6)] flex justify-center items-center gap-2"
                 >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Proceder al Pago seguro"}
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Activar Plan"}
                 </button>
                 <button
                   onClick={() => setConfirmPlan(null)}

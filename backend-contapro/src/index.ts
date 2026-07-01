@@ -32,7 +32,6 @@ import { WhatsAppService } from './services/whatsapp.js';
 import { analysisRoutes } from './routes/analysis.js';
 import { paymentsRoutes } from './routes/payments.js';
 import { paymentMethodsRoutes } from './routes/paymentMethods.js';
-import { stripeWebhookRoutes } from './routes/stripe_webhook.js';
 import { flowCallbackRoutes } from './routes/flow_callbacks.js';
 import { flowPaymentsRoutes } from './routes/flow_payments.js';
 import { webhooksRoutes } from './routes/webhooks.js';
@@ -71,10 +70,10 @@ async function buildServer() {
   const allowedOrigins: (string | RegExp)[] = [config.frontendUrl, /^https?:\/\/localhost(:\d+)?$/];
   await fastify.register(cors, { origin: allowedOrigins, credentials: true, methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'] });
   await fastify.register(rawBody, {
-    field: 'rawBody', // req.rawBody
-    global: false,    // Solo para rutas que lo pidan
-    encoding: 'utf8', // Stripe necesita string
-    runFirst: true,   // Ejecutar antes de JSON parser
+    field: 'rawBody',
+    global: false,
+    encoding: 'utf8',
+    runFirst: true,
   });
   await fastify.register(cookie, { hook: 'onRequest' });
   await fastify.register(jwt, { secret: config.jwtSecret });
@@ -193,7 +192,6 @@ async function buildServer() {
   await fastify.register(documentsRoutes, { prefix: '/api/documents' });
   await fastify.register(analysisRoutes, { prefix: '/api/analysis' });
   await fastify.register(integrationsRoutes, { prefix: '/api/integrations' });
-  await fastify.register(stripeWebhookRoutes, { prefix: '/api/stripe' });
   await fastify.register(flowCallbackRoutes, { prefix: '/api/flow' });
   await fastify.register(flowPaymentsRoutes, { prefix: '/api/payments' });
   await fastify.register(webhooksRoutes, { prefix: '/api/webhooks' });
