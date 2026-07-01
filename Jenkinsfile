@@ -5,9 +5,10 @@
 //   1. Quality & Security (paralelo): SonarQube + Checkov
 //   2. Build Backend: imagen Docker con pnpm
 //   3. Push to ECR: tags :latest y :<commit-sha>
-//   4. Deploy Backend: ECS force-new-deployment
-//   5. Database Migrations: ECS run-task con prisma migrate deploy
-//   6. Build & Deploy Frontend: pnpm build → S3 sync → CloudFront invalidation
+//   4. Sync App Secrets: sube API keys a Secrets Manager si está vacío
+//   5. Deploy Backend: ECS force-new-deployment
+//   6. Database Migrations: ECS run-task con prisma migrate deploy
+//   7. Build & Deploy Frontend: pnpm build → S3 sync → CloudFront invalidation
 //
 // Todo se resuelve dinámicamente desde AWS — no requiere variables manuales.
 //
@@ -16,6 +17,7 @@
 //   - Credenciales (Manage Jenkins > Credentials):
 //       * aws-credentials        (AWS Access Key + Secret Key)
 //       * sonarqube-token        (Secret text: token de SonarQube)
+//       * contapro-app-secrets   (Secret text: JSON con API keys del backend)
 //   - Configuración global:
 //       * SonarQube server "SonarQube" (Manage Jenkins > System > SonarQube servers)
 //       * SonarQube Scanner "SonarScanner" (Manage Jenkins > Tools)
@@ -165,7 +167,49 @@ pipeline {
         }
 
         // =====================================================================
-        // Stage 5: Deploy Backend to ECS
+        // Stage 5: Sync App Secrets to Secrets Manager
+        //
+        // Sube las API keys y configuración del backend a Secrets Manager.
+        // Solo actualiza si el secreto está vacío (primera vez tras terraform apply).
+        // Las credenciales se guardan en Jenkins como "contapro-app-secrets".
+        // =====================================================================
+        stage('Sync App Secrets') {
+            when {
+                triggeredBy 'UserIdCause'
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                                  credentialsId: 'aws-credentials',
+                                  accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                  secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'],
+                                 string(credentialsId: 'contapro-app-secrets', variable: 'APP_SECRETS_JSON')]) {
+                    sh '''
+                        SECRET_NAME="${PROJECT_NAME}-app-secrets-${ENVIRONMENT}"
+                        echo "=== Verificando secreto ${SECRET_NAME} ==="
+
+                        CURRENT=$(aws secretsmanager get-secret-value \
+                            --secret-id "${SECRET_NAME}" \
+                            --region ${AWS_REGION} \
+                            --query SecretString \
+                            --output text 2>/dev/null || echo "")
+
+                        if [ -z "${CURRENT}" ] || [ "${CURRENT}" = "{}" ] || [ "${CURRENT}" = "null" ]; then
+                            echo "Secreto vacío, subiendo configuración..."
+                            aws secretsmanager put-secret-value \
+                                --secret-id "${SECRET_NAME}" \
+                                --secret-string "${APP_SECRETS_JSON}" \
+                                --region ${AWS_REGION}
+                            echo "=== Secretos sincronizados ==="
+                        else
+                            echo "=== Secreto ya tiene valores, no se sobreescribe ==="
+                        fi
+                    '''
+                }
+            }
+        }
+
+        // =====================================================================
+        // Stage 6: Deploy Backend to ECS (force new deployment)
         // =====================================================================
         stage('Deploy Backend') {
             when {
