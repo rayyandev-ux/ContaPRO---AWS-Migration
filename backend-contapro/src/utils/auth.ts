@@ -29,7 +29,7 @@ export function getCookieOpts(req: FastifyRequest | any) {
  *   4. Query param ?token=                 -> usado por algunos webhooks/callbacks
  */
 export function extractToken(req: FastifyRequest): string | undefined {
-  const strip = (v: unknown) => (v ? String(v).replace(/^Bearer\s+/i, '') : undefined);
+  const strip = (v: unknown) => (typeof v === 'string' && v ? v.replace(/^Bearer\s+/i, '') : undefined);
   return (
     strip(req.headers.authorization) ??
     strip(req.headers['x-id-token']) ??
