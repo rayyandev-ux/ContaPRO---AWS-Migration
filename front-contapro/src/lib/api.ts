@@ -69,17 +69,19 @@ export async function apiJson<T = any>(path: string, init: RequestInit = {}): Pr
     }
     const url = `${BASE}${urlPath}`;
 
-    let authHeader = {};
+    let authHeader: Record<string, string> = {};
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken ?? session.tokens?.accessToken;
       if (token) {
-        authHeader = { "Authorization": `Bearer ${token.toString()}` };
+        // X-Id-Token: API Gateway (HTTP API) descarta el header Authorization,
+        // así que enviamos el mismo token en un header personalizado que sí reenvía.
+        authHeader = { "Authorization": `Bearer ${token.toString()}`, "X-Id-Token": token.toString() };
       }
     } catch (e) {}
     if (!('Authorization' in authHeader)) {
       const fb = getFallbackToken();
-      if (fb) authHeader = { "Authorization": `Bearer ${fb}` };
+      if (fb) authHeader = { "Authorization": `Bearer ${fb}`, "X-Id-Token": fb };
     }
 
     const res = await fetch(url, {
@@ -128,12 +130,13 @@ export async function apiMultipart<T = any>(path: string, formData: FormData): P
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken ?? session.tokens?.accessToken;
       if (token) {
-        authHeader = { "Authorization": `Bearer ${token.toString()}` };
+        // X-Id-Token: ver nota en api(). API Gateway descarta Authorization.
+        authHeader = { "Authorization": `Bearer ${token.toString()}`, "X-Id-Token": token.toString() };
       }
     } catch (e) {}
     if (!('Authorization' in authHeader)) {
       const fb = getFallbackToken();
-      if (fb) authHeader = { "Authorization": `Bearer ${fb}` };
+      if (fb) authHeader = { "Authorization": `Bearer ${fb}`, "X-Id-Token": fb };
     }
 
     const res = await fetch(url, {
