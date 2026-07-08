@@ -274,6 +274,10 @@ resource "aws_ecs_service" "backend" {
   desired_count   = 2
   launch_type     = "FARGATE"
 
+  # Margen para que las migraciones de Prisma (entrypoint) corran al arrancar
+  # sin que el ALB marque la tarea como unhealthy y la mate prematuramente.
+  health_check_grace_period_seconds = 180
+
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [var.ecs_sg_id]
