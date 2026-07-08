@@ -54,7 +54,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     if (plan === 'EXTRA_PROFILE' || plan === 'EXTRA_EMAIL') {
-      await handleAddonPurchase(app, userId, plan as 'EXTRA_PROFILE' | 'EXTRA_EMAIL');
+      await handleAddonPurchase(app, userId, plan);
       await publishEvent(userId, { type: 'subscription:updated' });
       return res.send({ url: `${config.frontendUrl}/dashboard?action=${plan.toLowerCase()}_purchased` });
     }
@@ -193,7 +193,7 @@ export const paymentsRoutes: FastifyPluginAsync = async (app) => {
     if (!user) return res.unauthorized();
 
     if (type === 'EXTRA_PROFILE' || type === 'EXTRA_EMAIL') {
-      await handleAddonPurchase(app, userId, type as 'EXTRA_PROFILE' | 'EXTRA_EMAIL');
+      await handleAddonPurchase(app, userId, type);
       await publishEvent(userId, { type: 'subscription:updated' });
       return res.send({ ok: true });
     }
