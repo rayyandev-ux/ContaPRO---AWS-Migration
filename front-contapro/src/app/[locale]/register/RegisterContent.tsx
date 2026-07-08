@@ -1,5 +1,4 @@
 "use client";
-import { BASE } from "@/lib/api";
 import { useState } from "react";
 import { useRouter, Link } from "@/i18n/routing";
 import { useSearchParams } from "next/navigation";
@@ -14,8 +13,6 @@ import Aurora from "@/components/Aurora";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 import { signUp } from 'aws-amplify/auth';
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
 
 export default function RegisterContent() {
   const t = useTranslations('Auth');
@@ -113,8 +110,8 @@ export default function RegisterContent() {
               }
             }
           });
-        } catch (authErr: any) {
-          console.warn("Cognito sign up error, trying legacy", authErr);
+        } catch (_) {
+          // Cognito signup failed — fallback to backend-only registration
         }
       }
 
@@ -151,21 +148,22 @@ export default function RegisterContent() {
             const { confirmSignUp, signIn } = await import('aws-amplify/auth');
             try {
                 await confirmSignUp({ username: email, confirmationCode: code });
-            } catch (authErr: any) {
-                const isAlreadyConfirmed = authErr?.name === 'NotAuthorizedException'
-                    || authErr?.message?.includes('CONFIRMED');
+            } catch (authErr: unknown) {
+                const err = authErr as { name?: string; message?: string };
+                const isAlreadyConfirmed = err?.name === 'NotAuthorizedException'
+                    || err?.message?.includes('CONFIRMED');
                 if (!isAlreadyConfirmed) {
-                    setError(authErr?.message || tRegister('step4.invalidCode'));
+                    setError(err?.message || tRegister('step4.invalidCode'));
                     setLoading(false);
                     return;
                 }
             }
             try {
                 const { signOut } = await import('aws-amplify/auth');
-                try { await signOut(); } catch {}
+                try { await signOut(); } catch (_) { /* clear previous session */ }
                 await signIn({ username: email, password });
-            } catch (signInErr: any) {
-                console.warn("Cognito signIn after verify", signInErr);
+            } catch (_) {
+                // signIn failed — backend verify will provide fallback token
             }
         }
 
@@ -192,51 +190,23 @@ export default function RegisterContent() {
   };
 
   const handleFinish = async (intent?: 'trial' | 'free') => {
-    if (intent === 'free') {
+    if (intent === 'free' || intent === 'trial') {
         setLoading(true);
         try {
-            const r = await apiJson<{ url?: string; redirectUrl?: string }>("/api/payments/checkout", { 
-                method: 'POST', 
-                body: JSON.stringify({ plan: 'MONTHLY', trial: true }) 
+            const r = await apiJson<{ url?: string; redirectUrl?: string }>("/api/payments/checkout", {
+                method: 'POST',
+                body: JSON.stringify({ plan: 'MONTHLY', ...(intent === 'free' ? { trial: true } : {}) })
             });
-            
             const targetUrl = r.data?.url || r.data?.redirectUrl;
-            
             if (r.ok && targetUrl) {
                 window.location.href = targetUrl;
             } else {
-                 console.error("Error initiating trial checkout:", r.error);
-                 router.push('/dashboard?welcome=true');
-            }
-        } catch (e) {
-            console.error("Trial checkout exception:", e);
-            router.push('/dashboard?welcome=true');
-        } finally {
-            if (loading) setLoading(false);
-        }
-    } else if (intent === 'trial') {
-        setLoading(true);
-        try {
-            // Initiate Stripe Checkout for Monthly Plan (which includes trial if configured in Stripe)
-            const r = await apiJson<{ url?: string; redirectUrl?: string }>("/api/payments/checkout", { 
-                method: 'POST', 
-                body: JSON.stringify({ plan: 'MONTHLY' }) 
-            });
-            
-            const targetUrl = r.data?.url || r.data?.redirectUrl;
-            
-            if (r.ok && targetUrl) {
-                window.location.href = targetUrl;
-            } else {
-                // If checkout fails, fallback to dashboard
-                console.error("Error initiating checkout:", r.error);
                 router.push('/dashboard?welcome=true');
             }
-        } catch (e) {
-            console.error("Checkout exception:", e);
+        } catch (_) {
             router.push('/dashboard?welcome=true');
         } finally {
-            if (loading) setLoading(false);
+            setLoading(false);
         }
     } else {
         router.push('/dashboard');

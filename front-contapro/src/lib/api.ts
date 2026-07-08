@@ -2,16 +2,14 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 
 export const BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
 
-// Caché simple en memoria (sólo en cliente) para GETs
-const g: any = globalThis as any;
+const g = globalThis as Record<string, unknown>;
 if (!g.__contapro_api_cache) {
-  g.__contapro_api_cache = new Map<string, { expires: number; data: any }>();
+  g.__contapro_api_cache = new Map<string, { expires: number; data: unknown }>();
 }
-const API_CACHE: Map<string, { expires: number; data: any }> = g.__contapro_api_cache;
-const DEFAULT_TTL_MS = Number(process.env.NEXT_PUBLIC_API_CACHE_TTL ?? 300_000); // 5 minutos por defecto
+const API_CACHE = g.__contapro_api_cache as Map<string, { expires: number; data: unknown }>;
+const DEFAULT_TTL_MS = Number(process.env.NEXT_PUBLIC_API_CACHE_TTL ?? 300_000);
 
 function makeKey(path: string): string {
-  // credential include hace el caché por sesión del navegador
   return path;
 }
 
@@ -24,33 +22,56 @@ let _fallbackToken: string | null = null;
 export function setFallbackToken(token: string) {
   _fallbackToken = token;
   if (typeof window !== 'undefined') {
-    try { sessionStorage.setItem('__contapro_token', token); } catch {}
+    try { sessionStorage.setItem('__contapro_token', token); } catch (_) { /* storage unavailable */ }
   }
 }
 
 export function clearFallbackToken() {
   _fallbackToken = null;
   if (typeof window !== 'undefined') {
-    try { sessionStorage.removeItem('__contapro_token'); } catch {}
+    try { sessionStorage.removeItem('__contapro_token'); } catch (_) { /* storage unavailable */ }
   }
 }
 
 function getFallbackToken(): string | null {
   if (_fallbackToken) return _fallbackToken;
   if (typeof window !== 'undefined') {
-    try { return sessionStorage.getItem('__contapro_token'); } catch {}
+    try { return sessionStorage.getItem('__contapro_token'); } catch (_) { /* storage unavailable */ }
   }
   return null;
 }
 
 export function invalidateApiCache(pathStartsWith: string) {
-  const prefix = pathStartsWith;
   for (const key of Array.from(API_CACHE.keys())) {
-    if (key.startsWith(prefix)) API_CACHE.delete(key);
+    if (key.startsWith(pathStartsWith)) API_CACHE.delete(key);
   }
 }
 
-export async function apiJson<T = any>(path: string, init: RequestInit = {}): Promise<{ ok: boolean; data?: T; error?: string }>{
+async function resolveAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const session = await fetchAuthSession();
+    const token = session.tokens?.idToken ?? session.tokens?.accessToken;
+    if (token) {
+      return { "Authorization": `Bearer ${token.toString()}`, "X-Id-Token": token.toString() };
+    }
+  } catch (_) { /* no Cognito session */ }
+
+  const fb = getFallbackToken();
+  if (fb) return { "Authorization": `Bearer ${fb}`, "X-Id-Token": fb };
+
+  return {};
+}
+
+function handle402(data: Record<string, unknown>, status: number): { ok: false; error: string } {
+  const msg = String((data?.message || data?.error) || `Error ${status}`);
+  if (typeof window !== 'undefined') {
+    clearApiCache();
+    window.location.href = '/billing';
+  }
+  return { ok: false, error: msg };
+}
+
+export async function apiJson<T = unknown>(path: string, init: RequestInit = {}): Promise<{ ok: boolean; data?: T; error?: string }> {
   try {
     const method = (init.method || 'GET').toUpperCase();
     const isGet = method === 'GET';
@@ -68,21 +89,7 @@ export async function apiJson<T = any>(path: string, init: RequestInit = {}): Pr
       urlPath = '/api/' + path.substring(11);
     }
     const url = `${BASE}${urlPath}`;
-
-    let authHeader: Record<string, string> = {};
-    try {
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken ?? session.tokens?.accessToken;
-      if (token) {
-        // X-Id-Token: API Gateway (HTTP API) descarta el header Authorization,
-        // así que enviamos el mismo token en un header personalizado que sí reenvía.
-        authHeader = { "Authorization": `Bearer ${token.toString()}`, "X-Id-Token": token.toString() };
-      }
-    } catch (e) {}
-    if (!('Authorization' in authHeader)) {
-      const fb = getFallbackToken();
-      if (fb) authHeader = { "Authorization": `Bearer ${fb}`, "X-Id-Token": fb };
-    }
+    const authHeader = await resolveAuthHeader();
 
     const res = await fetch(url, {
       ...init,
@@ -91,77 +98,46 @@ export async function apiJson<T = any>(path: string, init: RequestInit = {}): Pr
         ...authHeader,
         ...(init.body ? { "Content-Type": "application/json" } : {}),
       },
-      credentials: "omit", // Cambiado de include a omit porque ya usamos el Header Authorization
+      credentials: "omit",
     });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 402) {
-      const msg402 = (data && (data.message || data.error)) || `Error ${res.status}`;
-      try {
-        if (typeof window !== 'undefined') {
-          clearApiCache();
-          window.location.href = '/billing';
-        }
-      } catch {}
-      return { ok: false, error: msg402 };
-    }
+    if (res.status === 402) return handle402(data, res.status);
     if (!res.ok || (data && data.ok === false)) {
       const msg = (data && (data.message || data.error)) || `Error ${res.status}`;
-      return { ok: false, error: msg };
+      return { ok: false, error: String(msg) };
     }
     if (isGet && !skipCache) {
       API_CACHE.set(key, { expires: Date.now() + DEFAULT_TTL_MS, data });
     }
     return { ok: true, data };
-  } catch (e) {
+  } catch (_) {
     return { ok: false, error: "Network error" };
   }
 }
 
-export async function apiMultipart<T = any>(path: string, formData: FormData): Promise<{ ok: boolean; data?: T; error?: string }>{
+export async function apiMultipart<T = unknown>(path: string, formData: FormData): Promise<{ ok: boolean; data?: T; error?: string }> {
   try {
     let urlPath = path;
     if (path.startsWith('/api/proxy/')) {
       urlPath = '/api/' + path.substring(11);
     }
     const url = `${BASE}${urlPath}`;
-    
-    let authHeader: any = {};
-    try {
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken ?? session.tokens?.accessToken;
-      if (token) {
-        // X-Id-Token: ver nota en api(). API Gateway descarta Authorization.
-        authHeader = { "Authorization": `Bearer ${token.toString()}`, "X-Id-Token": token.toString() };
-      }
-    } catch (e) {}
-    if (!('Authorization' in authHeader)) {
-      const fb = getFallbackToken();
-      if (fb) authHeader = { "Authorization": `Bearer ${fb}`, "X-Id-Token": fb };
-    }
+    const authHeader = await resolveAuthHeader();
 
     const res = await fetch(url, {
       method: "POST",
       body: formData,
       headers: authHeader,
-      credentials: "omit", // Cambiado a omit
+      credentials: "omit",
     });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 402) {
-      const msg402 = (data && (data.message || data.error)) || `Error ${res.status}`;
-      try {
-        if (typeof window !== 'undefined') {
-          clearApiCache();
-          window.location.href = '/billing';
-        }
-      } catch {}
-      return { ok: false, error: msg402 };
-    }
+    if (res.status === 402) return handle402(data, res.status);
     if (!res.ok || (data && data.ok === false)) {
       const msg = (data && (data.message || data.error)) || `Error ${res.status}`;
-      return { ok: false, error: msg };
+      return { ok: false, error: String(msg) };
     }
     return { ok: true, data };
-  } catch (e) {
+  } catch (_) {
     return { ok: false, error: "Network error" };
   }
 }

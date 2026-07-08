@@ -52,11 +52,12 @@ function VerifyForm() {
       if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
         try {
           await confirmSignUp({ username: email, confirmationCode: clean });
-        } catch (authError: any) {
-          const isAlreadyConfirmed = authError?.name === 'NotAuthorizedException'
-              || authError?.message?.includes('CONFIRMED');
+        } catch (authError: unknown) {
+          const err = authError as { name?: string; message?: string };
+          const isAlreadyConfirmed = err?.name === 'NotAuthorizedException'
+              || err?.message?.includes('CONFIRMED');
           if (!isAlreadyConfirmed) {
-            console.warn("Cognito verification error", authError);
+            setError(err?.message || t('errors.invalidCode'));
           }
         }
       }
@@ -85,8 +86,8 @@ function VerifyForm() {
       if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
         try {
           await resendSignUpCode({ username: email });
-        } catch (authError) {
-          console.warn("Cognito resend code error", authError);
+        } catch (_) {
+          // Cognito resend failed — backend resend will handle it
         }
       }
 

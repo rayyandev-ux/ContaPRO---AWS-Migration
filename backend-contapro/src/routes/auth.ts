@@ -159,7 +159,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     });
 
     const parse = RegisterSchema.safeParse(req.body);
-    if (!parse.success) return res.badRequest('Datos inválidos: ' + JSON.stringify(parse.error.format()));
+    if (!parse.success) return res.badRequest('Datos inválidos');
     let { email, password, name, whatsappPhone, language, birthDate } = parse.data;
 
     // Sanitize whatsappPhone: empty string should be null/undefined to avoid unique constraint violation
@@ -262,18 +262,15 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!user) return res.badRequest('Estado inválido');
 
     if (user.emailVerified) {
-      const profile = await getOrCreateDefaultProfile(user.id, user.name || undefined);
-      const token = app.jwt.sign({ sub: user.id, userId: user.id, profileId: profile.id, type: 'session' }, { expiresIn: '7d' });
-      const baseOpts = getCookieOpts(req);
-      res.setCookie('session', token, { ...baseOpts, maxAge: 7 * 24 * 60 * 60 });
-      return res.send({ ok: true, token });
+      return res.send({ ok: true, alreadyVerified: true });
     }
 
     if (config.cognitoUserPoolId) {
       // Cognito ya verificó el código via confirmSignUp en el frontend
     } else {
       if (!user.verificationCode || !user.verificationExpires) return res.badRequest('No hay código activo');
-      if (user.verificationCode !== code) return res.badRequest('Código inválido');
+      const codeMatch = crypto.timingSafeEqual(Buffer.from(user.verificationCode), Buffer.from(code));
+      if (!codeMatch) return res.badRequest('Código inválido');
       if (user.verificationExpires.getTime() < Date.now()) return res.badRequest('Código expirado');
     }
 
@@ -335,13 +332,15 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const user = await app.prisma.user.findUnique({ where: { email } });
     if (!user || !user.resetCode || !user.resetExpires) return res.badRequest('Código inválido');
     const now = Date.now();
-    if (user.resetCode !== code) return res.badRequest('Código inválido');
+    const resetMatch = crypto.timingSafeEqual(Buffer.from(user.resetCode), Buffer.from(code));
+    if (!resetMatch) return res.badRequest('Código inválido');
     if (user.resetExpires.getTime() < now) return res.badRequest('Código expirado');
     const hashed = await hashPassword(password);
     const updated = await app.prisma.user.update({ where: { id: user.id }, data: { password: hashed, resetCode: null, resetExpires: null }, select: { id: true, name: true } });
     const profile = await getOrCreateDefaultProfile(updated.id, updated.name || undefined);
     const token = app.jwt.sign({ sub: updated.id, userId: updated.id, profileId: profile.id, type: 'session' }, { expiresIn: '7d' });
-    res.setCookie('session', token, getCookieOpts(req));
+    const baseOpts = getCookieOpts(req);
+    res.setCookie('session', token, { ...baseOpts, maxAge: 7 * 24 * 60 * 60 });
     return res.send({ ok: true, token });
   });
 
@@ -465,8 +464,6 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const userId = auth.userId;
     const parse = PrefsBody.safeParse(req.body);
     if (!parse.success) {
-      console.log('Validation failed for payload:', req.body);
-      console.log('Zod error:', parse.error);
       return res.badRequest('Datos inválidos');
     }
     const data: any = {};
@@ -551,7 +548,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
             name: uinfo?.name || undefined,
             role: email === config.adminEmail ? 'ADMIN' : 'USER',
             googleId,
-            emailVerified: emailVerified || true,
+            emailVerified: !!emailVerified,
             trialEnds: null,
           },
         });

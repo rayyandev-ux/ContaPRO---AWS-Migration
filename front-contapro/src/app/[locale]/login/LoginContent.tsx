@@ -1,10 +1,9 @@
 "use client";
-import { BASE } from "@/lib/api";
 import { useState } from "react";
 import { useRouter } from "@/i18n/routing";
 import { Link } from "@/i18n/routing";
 import Image from "next/image";
-import { apiJson, setFallbackToken } from "@/lib/api";
+import { apiJson, setFallbackToken, BASE } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +14,6 @@ import { useTranslations } from 'next-intl';
 import { cn } from "@/lib/utils";
 import { signIn } from 'aws-amplify/auth';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080").replace(/\/+$/, "");
 
 export default function LoginContent() {
   const t = useTranslations('Auth');
@@ -55,17 +53,17 @@ export default function LoginContent() {
       if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
         try {
           const { signOut } = await import('aws-amplify/auth');
-          try { await signOut(); } catch {}
+          try { await signOut(); } catch (_) { /* clear previous session */ }
           const { isSignedIn } = await signIn({
             username: email,
-            password: password,
+            password,
           });
           if (isSignedIn) {
             router.push('/dashboard');
             return;
           }
-        } catch (authError: any) {
-          console.warn("Amplify SignIn Error", authError);
+        } catch (_) {
+          // Cognito signIn failed — fallback to backend login
         }
       }
 
@@ -78,7 +76,7 @@ export default function LoginContent() {
         setError(error || t('loginError'));
       } else {
         if (data?.token) setFallbackToken(data.token);
-        try { (window as any).postMessage({ t: 'contapro:mutated' }, '*'); } catch {}
+        try { window.postMessage({ t: 'contapro:mutated' }, window.location.origin); } catch (_) { /* notify other frames */ }
         router.push('/dashboard');
       }
     } catch (err) {
@@ -136,7 +134,7 @@ export default function LoginContent() {
               </div>
 
               <div className="w-full space-y-4">
-                <a href={`${API_BASE}/api/auth/google`} className="block">
+                <a href={`${BASE}/api/auth/google`} className="block">
                   <Button variant="panel" className="w-full h-11 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 transition-all">
                     <span className="inline-flex items-center gap-2">
                       <span className="size-5 rounded-full bg-white/10 inline-flex items-center justify-center text-xs font-bold">G</span>

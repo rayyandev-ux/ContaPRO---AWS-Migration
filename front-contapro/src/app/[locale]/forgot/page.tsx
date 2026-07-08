@@ -38,19 +38,18 @@ export default function ForgotPasswordPage() {
       if (process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID) {
         try {
           await resetPassword({ username: email });
-        } catch (authError) {
-          console.warn("Cognito forgot password error", authError);
+        } catch (_) {
+          // Cognito reset failed — backend will handle it
         }
       }
 
-      const res = await fetch(BASE + "/api/auth/forgot", {
+      await fetch(BASE + "/api/auth/forgot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      await res.json();
       setSent(true);
-    } catch (err) {
+    } catch (_) {
       setSent(true);
     } finally {
       setLoading(false);

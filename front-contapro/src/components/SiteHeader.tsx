@@ -55,7 +55,7 @@ export default function SiteHeader() {
   }));
 
   useEffect(() => {
-    const onScroll = () => { try { setHeaderScrolled(window.scrollY >= 2); } catch {} };
+    const onScroll = () => { setHeaderScrolled(window.scrollY >= 2); };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => { window.removeEventListener('scroll', onScroll); };

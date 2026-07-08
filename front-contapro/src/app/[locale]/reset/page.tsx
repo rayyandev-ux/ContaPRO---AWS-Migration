@@ -54,8 +54,8 @@ function ResetForm() {
           // Si Cognito funcionó, hacemos login y redirigimos
           router.push("/login");
           return;
-        } catch (authError) {
-          console.warn("Cognito reset password error", authError);
+        } catch (_) {
+          // Cognito reset failed — fallback to backend reset
         }
       }
 
@@ -67,7 +67,7 @@ function ResetForm() {
         if (d?.token) setFallbackToken(d.token);
         router.push("/dashboard");
       }
-    } catch {
+    } catch (_) {
       setError("Error inesperado");
     } finally {
       setLoading(false);
