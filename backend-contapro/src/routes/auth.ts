@@ -22,6 +22,30 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     return profile;
   };
 
+  // Resuelve el usuario a partir del token: primero valida como token de ID de
+  // Cognito y, si no lo es, cae al JWT local. Extraído de /me para mantener baja
+  // la complejidad cognitiva del handler.
+  const resolveTokenIdentity = async (token: string): Promise<{ userId?: string; profileId?: string }> => {
+    const cognitoVerifier = getCognitoVerifier();
+    if (cognitoVerifier) {
+      try {
+        const cognitoPayload = await cognitoVerifier.verify(token);
+        const email = (cognitoPayload as any).email;
+        if (email) {
+          const dbUser = await app.prisma.user.findUnique({ where: { email }, select: { id: true } });
+          if (dbUser) {
+            const defaultProfile = await app.prisma.profile.findFirst({ where: { userId: dbUser.id, isDefault: true }, select: { id: true } });
+            return { userId: dbUser.id, profileId: defaultProfile?.id };
+          }
+        }
+      } catch {
+        // No es un token de Cognito: usar el JWT local
+      }
+    }
+    const payload = app.jwt.verify(token) as { sub: string; profileId?: string };
+    return { userId: payload.sub, profileId: payload.profileId };
+  };
+
   const RegisterBody = z.object({ email: z.string().email(), password: z.string().min(6), name: z.string().optional() });
   const LoginBody = z.object({ email: z.string().email(), password: z.string().min(6), remember: z.boolean().optional() });
   const VerifyBody = z.object({ email: z.string().email(), code: z.string().length(6) });
@@ -332,38 +356,13 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/me', { schema: { summary: 'Get current user' } }, async (req, res) => {
-    let token = extractToken(req);
+    const token = extractToken(req);
     if (!token) {
       res.clearCookie('session', getCookieOpts(req));
       return res.unauthorized('No autenticado');
     }
     try {
-      let userId: string | undefined;
-      let profileId: string | undefined;
-
-      const cognitoVerifier = getCognitoVerifier();
-      if (cognitoVerifier) {
-        try {
-          const cognitoPayload = await cognitoVerifier.verify(token);
-          const email = (cognitoPayload as any).email;
-          if (email) {
-            const dbUser = await app.prisma.user.findUnique({ where: { email }, select: { id: true } });
-            if (dbUser) {
-              userId = dbUser.id;
-              const defaultProfile = await app.prisma.profile.findFirst({ where: { userId: dbUser.id, isDefault: true }, select: { id: true } });
-              profileId = defaultProfile?.id;
-            }
-          }
-        } catch {
-          // Not a Cognito token, fall back to local JWT
-        }
-      }
-
-      if (!userId) {
-        const payload = app.jwt.verify(token) as { sub: string, profileId?: string };
-        userId = payload.sub;
-        profileId = payload.profileId;
-      }
+      const { userId, profileId } = await resolveTokenIdentity(token);
 
       const user = await app.prisma.user.findUnique({
          where: { id: userId },
@@ -382,7 +381,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       });
       if (!user) return res.unauthorized('Usuario no encontrado');
 
-      const { profiles, ...userData } = user;
+      const { profiles } = user;
       const limits = await calculateProfileLimits(user.id, app.prisma, user);
 
       let currentProfileId = profileId;
