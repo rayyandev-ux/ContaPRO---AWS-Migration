@@ -28,12 +28,12 @@ export function getCookieOpts(req: FastifyRequest | any) {
  *   3. Cookie de sesión                    -> compatibilidad con el dashboard antiguo
  *   4. Query param ?token=                 -> usado por algunos webhooks/callbacks
  */
-export function extractToken(req: FastifyRequest | any): string | undefined {
-  const strip = (v: any) => (v ? String(v).replace(/^Bearer\s+/i, '') : undefined);
+export function extractToken(req: FastifyRequest): string | undefined {
+  const strip = (v: unknown) => (v ? String(v).replace(/^Bearer\s+/i, '') : undefined);
   return (
-    strip(req.headers?.authorization) ??
-    strip(req.headers?.['x-id-token']) ??
-    req.cookies?.session ??
+    strip(req.headers.authorization) ??
+    strip(req.headers['x-id-token']) ??
+    (req as any).cookies?.session ??
     (req.query as any)?.token
   );
 }
