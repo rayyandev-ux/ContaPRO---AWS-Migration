@@ -84,7 +84,9 @@ resource "aws_cloudfront_function" "rewrite_urls" {
     function handler(event) {
       var request = event.request;
       var uri = request.uri;
+      var locales = ['es', 'en', 'pt'];
 
+      // Raíz -> idioma por defecto
       if (uri === '/' || uri === '') {
         return {
           statusCode: 302,
@@ -93,12 +95,42 @@ resource "aws_cloudfront_function" "rewrite_urls" {
         };
       }
 
+      var segments = uri.split('/');
+      var first = segments[1];
+      var last = segments[segments.length - 1];
+      var hasExtension = last.indexOf('.') !== -1;
+
+      // Rutas sin prefijo de idioma (y que no son archivos ni assets de Next)
+      // -> redirigir a /es + ruta, preservando el query string.
+      // Esto evita 404 cuando el backend redirige a rutas como
+      // /payments/success, /dashboard?welcome=true, /integrations?error=...
+      if (!hasExtension && first !== '_next' && locales.indexOf(first) === -1) {
+        var qs = '';
+        var q = request.querystring;
+        var keys = Object.keys(q);
+        if (keys.length > 0) {
+          var parts = [];
+          for (var i = 0; i < keys.length; i++) {
+            var k = keys[i];
+            parts.push(q[k].value ? (k + '=' + q[k].value) : k);
+          }
+          qs = '?' + parts.join('&');
+        }
+        return {
+          statusCode: 302,
+          statusDescription: 'Found',
+          headers: { location: { value: '/es' + uri + qs } }
+        };
+      }
+
+      // Quitar barra final
       if (uri.endsWith('/')) {
         uri = uri.slice(0, -1);
       }
 
-      var lastSegment = uri.split('/').pop();
-      if (!lastSegment.includes('.')) {
+      // Añadir .html a rutas sin extensión (Next.js static export)
+      last = uri.split('/').pop();
+      if (!last.includes('.')) {
         uri = uri + '.html';
       }
 
