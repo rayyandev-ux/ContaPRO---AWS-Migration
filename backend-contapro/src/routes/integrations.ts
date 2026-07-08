@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { config } from '../config.js';
 import { isEntitled } from '../utils/subscription.js';
-import { requireAuth } from '../utils/auth.js';
+import { requireAuth, extractToken } from '../utils/auth.js';
 import { NotificationService } from '../services/notifications.js';
 import { encrypt } from '../utils/crypto.js';
 
@@ -254,7 +254,7 @@ Estoy aqu铆 para ayudarte a gestionar tus finanzas de manera inteligente. 馃鉁
   // ========================
   app.get('/google/connect', { schema: { summary: 'Iniciar conexi贸n con Gmail' } }, async (req, res) => {
     try {
-        const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session || (req.query as any).token;
+        const token = extractToken(req);
         if (!token) return res.redirect(`${config.frontendUrl}/integrations?error=unauthorized`);
         const decoded = app.jwt.verify(token) as { sub: string };
         const user = await app.prisma.user.findUnique({ where: { id: decoded.sub } });
@@ -324,7 +324,7 @@ Estoy aqu铆 para ayudarte a gestionar tus finanzas de manera inteligente. 馃鉁
     
     let userId: string | undefined;
     try {
-        const session = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session || (req.query as any).token;
+        const session = extractToken(req);
         if (session) {
             const decoded = app.jwt.verify(session) as { sub: string };
             userId = decoded.sub;
@@ -630,7 +630,7 @@ Recuerda que puedes gestionar los filtros en la secci贸n de Integraciones.`;
   // ========================
   app.get('/outlook/connect', { schema: { summary: 'Iniciar conexi贸n con Outlook' } }, async (req, res) => {
     try {
-        const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session || (req.query as any).token;
+        const token = extractToken(req);
         if (!token) return res.redirect(`${config.frontendUrl}/integrations?error=unauthorized`);
         const decoded = app.jwt.verify(token) as { sub: string };
         const user = await app.prisma.user.findUnique({ where: { id: decoded.sub } });
@@ -684,7 +684,7 @@ Recuerda que puedes gestionar los filtros en la secci贸n de Integraciones.`;
 
     let userId: string | undefined;
     try {
-        const session = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session || (req.query as any).token;
+        const session = extractToken(req);
         if (session) {
             const decoded = app.jwt.verify(session) as { sub: string };
             userId = decoded.sub;

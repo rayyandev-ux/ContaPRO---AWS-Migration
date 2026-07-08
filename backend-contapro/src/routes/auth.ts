@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { hashPassword, verifyPassword } from '../services/hash.js';
 import { sendVerificationEmail, sendPasswordResetEmail, generateCode } from '../services/email.js';
 import { config } from '../config.js';
-import { getCookieOpts, requireAuth } from '../utils/auth.js';
+import { getCookieOpts, requireAuth, extractToken } from '../utils/auth.js';
 import { getCognitoVerifier } from '../services/aws.js';
 
 import { generateSessionToken, verifyMagicToken } from '../utils/jwt.js';
@@ -332,7 +332,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/me', { schema: { summary: 'Get current user' } }, async (req, res) => {
-    let token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session;
+    let token = extractToken(req);
     if (!token) {
       res.clearCookie('session', getCookieOpts(req));
       return res.unauthorized('No autenticado');

@@ -19,13 +19,28 @@ export function getCookieOpts(req: FastifyRequest | any) {
   };
 }
 
+/**
+ * Extrae el token de autenticación de una petición, en orden de prioridad:
+ *   1. Header Authorization (Bearer)      -> flujo normal
+ *   2. Header X-Id-Token                   -> IMPRESCINDIBLE detrás de API Gateway:
+ *      el HTTP API descarta el header Authorization y no permite remapearlo,
+ *      así que el frontend envía el mismo token también en X-Id-Token.
+ *   3. Cookie de sesión                    -> compatibilidad con el dashboard antiguo
+ *   4. Query param ?token=                 -> usado por algunos webhooks/callbacks
+ */
+export function extractToken(req: FastifyRequest | any): string | undefined {
+  const strip = (v: any) => (v ? String(v).replace(/^Bearer\s+/i, '') : undefined);
+  return (
+    strip(req.headers?.authorization) ??
+    strip(req.headers?.['x-id-token']) ??
+    req.cookies?.session ??
+    (req.query as any)?.token
+  );
+}
+
 export async function requireAuth(app: FastifyInstance, req: FastifyRequest | any, res: FastifyReply | any): Promise<{ userId: string, profileId: string } | null> {
-  let token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    // Fallback a cookie por si hay dependencias temporales en el dashboard antiguo
-    token = req.cookies.session;
-  }
-  
+  const token = extractToken(req);
+
   if (!token) {
     res.unauthorized('No autenticado');
     return null;

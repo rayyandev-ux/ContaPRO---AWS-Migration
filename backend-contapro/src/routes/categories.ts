@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { sanitizeText, fixUtf8Mojibake } from '../utils/format.js';
 import { publishEvent } from '../services/realtime.js';
-import { requireAuth } from '../utils/auth.js';
+import { requireAuth, extractToken } from '../utils/auth.js';
 
 
 export const categoriesRoutes: FastifyPluginAsync = async (app) => {
@@ -11,7 +11,7 @@ export const categoriesRoutes: FastifyPluginAsync = async (app) => {
   app.get('/', { schema: { summary: 'List categories (global + user)' } }, async (req, res) => {
     // Auth is optional for listing categories — returns global ones if not authenticated
     const auth = await (async () => {
-      const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies.session;
+      const token = extractToken(req);
       if (!token) return null;
       try {
         const payload = app.jwt.verify(token) as { sub: string; profileId?: string };
