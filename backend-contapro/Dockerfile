@@ -136,6 +136,12 @@ EXPOSE 8080
 # Healthcheck local del contenedor (el ALB usa /api/health por su cuenta)
 HEALTHCHECK --interval=20s --timeout=3s --retries=5 CMD curl -fsS http://localhost:${PORT}/health || exit 1
 
+# Entrypoint: aplica migraciones de Prisma (idempotente) antes de arrancar.
+# Garantiza que tras cada terraform apply la BD quede con el schema completo.
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 USER node
 
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "--experimental-specifier-resolution=node", "dist/index.js"]
