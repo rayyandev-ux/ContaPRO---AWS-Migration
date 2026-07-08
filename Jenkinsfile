@@ -7,8 +7,10 @@
 //   3. Push to ECR: tags :latest y :<commit-sha>
 //   4. Sync App Secrets: sube API keys a Secrets Manager si está vacío
 //   5. Deploy Backend: ECS force-new-deployment
-//   6. Database Migrations: ECS run-task con prisma migrate deploy
-//   7. Build & Deploy Frontend: pnpm build → S3 sync → CloudFront invalidation
+//   6. Build & Deploy Frontend: pnpm build → S3 sync → CloudFront invalidation
+//
+// Las migraciones de Prisma corren automáticamente en el entrypoint del
+// contenedor al arrancar (ver backend-contapro/docker-entrypoint.sh).
 //
 // Todo se resuelve dinámicamente desde AWS — no requiere variables manuales.
 //
@@ -236,106 +238,6 @@ pipeline {
                             --cluster ${ECS_CLUSTER} \
                             --services ${ECS_SERVICE} \
                             --region ${AWS_REGION}
-                    '''
-                }
-            }
-        }
-
-        // =====================================================================
-        // Stage 6: Database Migrations (prisma migrate deploy via ECS run-task)
-        //
-        // Ejecuta las migraciones de Prisma dentro de la VPC usando la misma
-        // imagen Docker del backend. Obtiene la task definition y la network
-        // configuration del servicio ECS desplegado.
-        // =====================================================================
-        stage('Database Migrations') {
-            when {
-                anyOf {
-                    changeset 'backend-contapro/**'
-                    triggeredBy 'UserIdCause'
-                }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
-                                  credentialsId: 'aws-credentials',
-                                  accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                                  secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        echo "=== Obteniendo configuración del servicio ECS ==="
-                        TASK_DEF=$(aws ecs describe-services \
-                            --cluster ${ECS_CLUSTER} \
-                            --services ${ECS_SERVICE} \
-                            --region ${AWS_REGION} \
-                            --query "services[0].taskDefinition" \
-                            --output text)
-                        echo "Task Definition: ${TASK_DEF}"
-
-                        SUBNETS=$(aws ecs describe-services \
-                            --cluster ${ECS_CLUSTER} \
-                            --services ${ECS_SERVICE} \
-                            --region ${AWS_REGION} \
-                            --query "services[0].networkConfiguration.awsvpcConfiguration.subnets" \
-                            --output json)
-
-                        SECURITY_GROUPS=$(aws ecs describe-services \
-                            --cluster ${ECS_CLUSTER} \
-                            --services ${ECS_SERVICE} \
-                            --region ${AWS_REGION} \
-                            --query "services[0].networkConfiguration.awsvpcConfiguration.securityGroups" \
-                            --output json)
-
-                        CONTAINER_NAME=$(aws ecs describe-task-definition \
-                            --task-definition "${TASK_DEF}" \
-                            --region ${AWS_REGION} \
-                            --query "taskDefinition.containerDefinitions[0].name" \
-                            --output text)
-
-                        echo "=== Ejecutando prisma migrate deploy ==="
-                        cat > /tmp/ecs-overrides.json <<EOFJ
-{"containerOverrides":[{"name":"${CONTAINER_NAME}","command":["npx","prisma","migrate","deploy"]}]}
-EOFJ
-                        cat > /tmp/ecs-network.json <<EOFN
-{"awsvpcConfiguration":{"subnets":${SUBNETS},"securityGroups":${SECURITY_GROUPS},"assignPublicIp":"DISABLED"}}
-EOFN
-                        TASK_ARN=$(aws ecs run-task \
-                            --cluster ${ECS_CLUSTER} \
-                            --task-definition "${TASK_DEF}" \
-                            --launch-type FARGATE \
-                            --network-configuration file:///tmp/ecs-network.json \
-                            --overrides file:///tmp/ecs-overrides.json \
-                            --region ${AWS_REGION} \
-                            --query "tasks[0].taskArn" \
-                            --output text \
-                            --no-cli-pager)
-                        echo "Migration Task: ${TASK_ARN}"
-
-                        echo "Esperando a que la migración termine..."
-                        aws ecs wait tasks-stopped \
-                            --cluster ${ECS_CLUSTER} \
-                            --tasks "${TASK_ARN}" \
-                            --region ${AWS_REGION}
-
-                        EXIT_CODE=$(aws ecs describe-tasks \
-                            --cluster ${ECS_CLUSTER} \
-                            --tasks "${TASK_ARN}" \
-                            --region ${AWS_REGION} \
-                            --query "tasks[0].containers[0].exitCode" \
-                            --output text)
-                        echo "Migration exit code: ${EXIT_CODE}"
-
-                        if [ "${EXIT_CODE}" != "0" ]; then
-                            echo "=== ERROR: Migración falló. Logs: ==="
-                            TASK_ID=$(echo "${TASK_ARN}" | awk -F'/' '{print $NF}')
-                            aws logs get-log-events \
-                                --log-group-name "/ecs/${PROJECT_NAME}-backend-${ENVIRONMENT}" \
-                                --log-stream-name "ecs/${CONTAINER_NAME}/${TASK_ID}" \
-                                --region ${AWS_REGION} \
-                                --query "events[*].message" \
-                                --output text 2>/dev/null || true
-                            exit 1
-                        fi
-
-                        echo "=== Migraciones aplicadas exitosamente ==="
                     '''
                 }
             }
